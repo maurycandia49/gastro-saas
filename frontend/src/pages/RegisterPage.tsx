@@ -1,21 +1,34 @@
-import { Link } from 'react-router-dom';
-import api from '../services/api';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { getAuthErrorMessage, register as registerService } from '../services/auth';
 
 export function RegisterPage() {
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+
     try {
-      await api.post('/auth/register/', {
-        username: form.get('username'),
-        email: form.get('email'),
-        password: form.get('password'),
-        first_name: form.get('first_name'),
-        last_name: form.get('last_name'),
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      await registerService({
+        username: String(form.get('username') || '').trim(),
+        email: String(form.get('email') || '').trim(),
+        password: String(form.get('password') || ''),
+        first_name: String(form.get('first_name') || '').trim(),
+        last_name: String(form.get('last_name') || '').trim(),
       });
-      window.location.href = '/login';
+      setSuccess('Cuenta creada correctamente. Ahora podés ingresar.');
+      setTimeout(() => navigate('/login', { replace: true }), 800);
     } catch (error) {
-      console.error(error);
+      setError(getAuthErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,8 +61,12 @@ export function RegisterPage() {
             <label className="mb-2 block text-sm font-medium text-slate-700">Contraseña</label>
             <input type="password" name="password" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" />
           </div>
+          {error ? <p className="md:col-span-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p> : null}
+          {success ? <p className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-600">{success}</p> : null}
           <div className="md:col-span-2">
-            <button className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800">Crear cuenta</button>
+            <button disabled={loading} className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70">
+              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+            </button>
           </div>
         </form>
         <p className="mt-6 text-center text-sm text-slate-500">

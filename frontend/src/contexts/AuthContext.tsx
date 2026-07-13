@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { logout as logoutService, register as registerService, type RegisterPayload } from '../services/auth';
 import type { AuthContextType, User } from '../types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -13,7 +14,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const storedRefresh = localStorage.getItem('pedilo_refresh');
 
     if (storedUser && storedAccess && storedRefresh) {
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem('pedilo_user');
+      }
     }
     setLoading(false);
   }, []);
@@ -25,11 +30,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userData);
   };
 
-  const logout = () => {
-    localStorage.removeItem('pedilo_access');
-    localStorage.removeItem('pedilo_refresh');
-    localStorage.removeItem('pedilo_user');
-    setUser(null);
+  const register = async (payload: RegisterPayload) => {
+    return registerService(payload);
+  };
+
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('pedilo_refresh');
+    try {
+      if (refreshToken) {
+        await logoutService(refreshToken);
+      }
+    } catch {
+      // Ignore server errors and clear client state anyway.
+    } finally {
+      localStorage.removeItem('pedilo_access');
+      localStorage.removeItem('pedilo_refresh');
+      localStorage.removeItem('pedilo_user');
+      setUser(null);
+      window.location.assign('/login');
+    }
   };
 
   const value = useMemo(
@@ -38,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user),
       login,
       logout,
+      register,
       loading,
     }),
     [user, loading],

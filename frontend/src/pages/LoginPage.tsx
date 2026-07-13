@@ -1,26 +1,41 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+import { getAuthErrorMessage, login as loginService } from '../services/auth';
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const username = String(form.get('username') || '').trim();
+    const password = String(form.get('password') || '');
+
+    if (!username || !password) {
+      setError('Completá usuario y contraseña para continuar.');
+      return;
+    }
+
     try {
-      const response = await api.post('/auth/login/', {
-        username: form.get('username'),
-        password: form.get('password'),
-      });
-      login(response.data, {
-        id: 0,
-        username: form.get('username') as string,
-        email: `${form.get('username')}@pedilo.local`,
-      });
-      window.location.href = '/dashboard';
+      setLoading(true);
+      setError('');
+      const response = await loginService({ username, password });
+      login(response.tokens, response.user);
+      navigate('/dashboard', { replace: true });
     } catch (error) {
-      console.error(error);
+      setError(getAuthErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,7 +56,10 @@ export function LoginPage() {
             <label className="mb-2 block text-sm font-medium text-slate-700">Contraseña</label>
             <input type="password" name="password" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none ring-0" placeholder="••••••••" />
           </div>
-          <button className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800">Entrar</button>
+          {error ? <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p> : null}
+          <button disabled={loading} className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70">
+            {loading ? 'Ingresando...' : 'Entrar'}
+          </button>
         </form>
         <p className="mt-6 text-center text-sm text-slate-500">
           ¿No tenés cuenta?{' '}
