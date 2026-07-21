@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { createBusiness, type CreateBusinessPayload } from '../../services/business';
+import { getApiErrorMessage } from '../../services/apiErrors';
 
 interface CreateBusinessModalProps {
   open: boolean;
@@ -25,8 +26,12 @@ export function CreateBusinessModal({ open, onClose, onSuccess }: CreateBusiness
       phone: String(form.get('phone') || '').trim(),
       email: String(form.get('email') || '').trim(),
       address: String(form.get('address') || '').trim(),
-      logo: String(form.get('logo') || '').trim(),
     };
+    const logo = String(form.get('logo') || '').trim();
+
+    if (logo) {
+      payload.logo = logo;
+    }
 
     if (!payload.name || !payload.phone || !payload.email || !payload.address) {
       setError('Completá nombre, teléfono, email y dirección para continuar.');
@@ -43,10 +48,7 @@ export function CreateBusinessModal({ open, onClose, onSuccess }: CreateBusiness
       event.currentTarget.reset();
       onClose();
     } catch (error: unknown) {
-      const message = error && typeof error === 'object' && 'response' in error
-        ? ((error as { response?: { data?: { detail?: string; [key: string]: unknown } } }).response?.data?.detail ?? 'No se pudo crear el negocio.')
-        : 'No se pudo crear el negocio.';
-      setError(typeof message === 'string' ? message : 'No se pudo crear el negocio.');
+      setError(getApiErrorMessage(error, 'No se pudo crear el negocio.'));
     } finally {
       setLoading(false);
     }

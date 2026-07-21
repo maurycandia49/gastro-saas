@@ -18,6 +18,7 @@ class Producto(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True)
     image = models.ImageField(upload_to='productos/', blank=True, null=True)
     available = models.BooleanField(default=True)
     featured = models.BooleanField(default=False)

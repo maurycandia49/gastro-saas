@@ -7,6 +7,7 @@ import { RegisterPage } from '../pages/RegisterPage';
 import { BusinessPage } from '../pages/BusinessPage';
 import { CategoriesPage } from '../pages/CategoriesPage';
 import { ProductsPage } from '../pages/ProductsPage';
+import { PublicMenuPage } from '../pages/PublicMenuPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { CustomersPage } from '../pages/CustomersPage';
 import { PromotionsPage } from '../pages/PromotionsPage';
@@ -35,6 +36,10 @@ export const router = createBrowserRouter([
   {
     path: '/registro',
     element: <RegisterPage />,
+  },
+  {
+    path: '/menu/:businessId',
+    element: <PublicMenuPage />,
   },
   {
     path: '/',

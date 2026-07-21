@@ -1,5 +1,6 @@
 import api from './api';
 import type { User } from '../types';
+import { getApiErrorMessage } from './apiErrors';
 
 export interface LoginPayload {
   username: string;
@@ -25,6 +26,11 @@ export interface LoginResponse {
 }
 
 export function getAuthErrorMessage(error: unknown): string {
+  return getApiErrorMessage(error);
+}
+
+export function legacyAuthErrorMessage(error: any): any {
+  /* legacy compatibility */
   if (typeof error === 'string') {
     return error;
   }

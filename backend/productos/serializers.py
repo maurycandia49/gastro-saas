@@ -11,7 +11,7 @@ class ProductoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Producto
-        fields = ['id', 'negocio', 'categoria', 'name', 'description', 'price', 'image', 'available', 'featured', 'order', 'created_at', 'updated_at']
+        fields = ['id', 'negocio', 'categoria', 'name', 'description', 'price', 'cost_price', 'image', 'available', 'featured', 'order', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_negocio(self, value):

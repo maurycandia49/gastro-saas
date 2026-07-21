@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { createCategory, type CreateCategoryPayload, type Category } from '../../services/categories';
+import { getApiErrorMessage } from '../../services/apiErrors';
 
 interface CreateCategoryModalProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function CreateCategoryModal({ open, businessId, businessName, onClose, o
       negocio: businessId ?? 0,
       name: String(form.get('name') || '').trim(),
       description: String(form.get('description') || '').trim(),
+      order: 0,
       active: true,
     };
 
@@ -50,10 +52,7 @@ export function CreateCategoryModal({ open, businessId, businessName, onClose, o
       event.currentTarget.reset();
       onClose();
     } catch (error: unknown) {
-      const message = error && typeof error === 'object' && 'response' in error
-        ? ((error as { response?: { data?: { detail?: string; [key: string]: unknown } } }).response?.data?.detail ?? 'No se pudo crear la categoría.')
-        : 'No se pudo crear la categoría.';
-      setError(typeof message === 'string' ? message : 'No se pudo crear la categoría.');
+      setError(getApiErrorMessage(error, 'No se pudo crear la categoría.'));
     } finally {
       setLoading(false);
     }
