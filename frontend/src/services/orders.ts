@@ -19,6 +19,9 @@ export interface Order {
   customer_phone: string;
   delivery_address: string;
   notes: string;
+  fulfillment_type: 'delivery' | 'pickup';
+  delivery_fee: string;
+  estimated_minutes: number | null;
   status: OrderStatus;
   total: string;
   items_count: number;
@@ -33,6 +36,7 @@ export interface PublicOrderPayload {
   customer_phone: string;
   delivery_address: string;
   notes: string;
+  fulfillment_type: 'delivery' | 'pickup';
   items: Array<{
     product_id: number;
     quantity: number;

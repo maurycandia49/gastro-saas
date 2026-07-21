@@ -11,6 +11,7 @@ import { PublicMenuPage } from '../pages/PublicMenuPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { CustomersPage } from '../pages/CustomersPage';
 import { PromotionsPage } from '../pages/PromotionsPage';
+import { InventoryPage } from '../pages/InventoryPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: 'pedidos', element: <OrdersPage /> },
       { path: 'clientes', element: <CustomersPage /> },
       { path: 'promociones', element: <PromotionsPage /> },
+      { path: 'inventario', element: <InventoryPage /> },
       { path: 'configuracion', element: <SettingsPage /> },
     ],
   },

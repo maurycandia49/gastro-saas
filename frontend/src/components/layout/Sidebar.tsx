@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, Tag, Boxes, ReceiptText, Users, Sparkles, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Store, Tag, Boxes, ReceiptText, Users, Sparkles, Settings, ChevronLeft, ChevronRight, Warehouse } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const links = [
@@ -9,6 +9,7 @@ const links = [
   { to: '/pedidos', label: 'Pedidos', icon: ReceiptText },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/promociones', label: 'Promociones', icon: Sparkles },
+  { to: '/inventario', label: 'Inventario', icon: Warehouse },
   { to: '/configuracion', label: 'Configuración', icon: Settings },
 ];
 

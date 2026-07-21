@@ -6,6 +6,7 @@ export interface CheckoutData {
   phone: string;
   address: string;
   notes: string;
+  fulfillment_type: 'delivery' | 'pickup';
 }
 
 interface CheckoutModalProps {
@@ -13,10 +14,14 @@ interface CheckoutModalProps {
   submitting: boolean;
   onClose: () => void;
   onSubmit: (data: CheckoutData) => void;
+  deliveryEnabled: boolean;
+  pickupEnabled: boolean;
+  requirePhone: boolean;
+  requireAddress: boolean;
 }
 
-export function CheckoutModal({ open, submitting, onClose, onSubmit }: CheckoutModalProps) {
-  const [form, setForm] = useState<CheckoutData>({ name: '', phone: '', address: '', notes: '' });
+export function CheckoutModal({ open, submitting, onClose, onSubmit, deliveryEnabled, pickupEnabled, requirePhone, requireAddress }: CheckoutModalProps) {
+  const [form, setForm] = useState<CheckoutData>({ name: '', phone: '', address: '', notes: '', fulfillment_type: deliveryEnabled ? 'delivery' : 'pickup' });
   const [error, setError] = useState('');
 
   if (!open) return null;
@@ -27,7 +32,11 @@ export function CheckoutModal({ open, submitting, onClose, onSubmit }: CheckoutM
       setError('El nombre es obligatorio.');
       return;
     }
-    if (!form.address.trim()) {
+    if (requirePhone && !form.phone.trim()) {
+      setError('El telefono es obligatorio.');
+      return;
+    }
+    if (form.fulfillment_type === 'delivery' && requireAddress && !form.address.trim()) {
       setError('La direccion es obligatoria.');
       return;
     }
@@ -52,18 +61,22 @@ export function CheckoutModal({ open, submitting, onClose, onSubmit }: CheckoutM
         {error ? <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         <div className="mt-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {deliveryEnabled ? <button type="button" onClick={() => setForm((current) => ({ ...current, fulfillment_type: 'delivery' }))} className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${form.fulfillment_type === 'delivery' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600'}`}>Envio</button> : null}
+            {pickupEnabled ? <button type="button" onClick={() => setForm((current) => ({ ...current, fulfillment_type: 'pickup', address: '' }))} className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${form.fulfillment_type === 'pickup' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-600'}`}>Retiro</button> : null}
+          </div>
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">Nombre</span>
             <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
           </label>
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">Telefono opcional</span>
+            <span className="mb-2 block text-sm font-medium text-slate-700">Telefono {requirePhone ? '' : 'opcional'}</span>
             <input value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
           </label>
-          <label className="block">
+          {form.fulfillment_type === 'delivery' ? <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">Direccion</span>
             <input value={form.address} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
-          </label>
+          </label> : null}
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">Observaciones</span>
             <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={3} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />

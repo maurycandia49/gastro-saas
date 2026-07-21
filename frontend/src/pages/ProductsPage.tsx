@@ -10,6 +10,8 @@ import { getBusinesses, type Business } from '../services/business';
 import { getCategories, type Category } from '../services/categories';
 import { createProduct, deleteProduct, getProducts, updateProduct, type Product, type ProductPayload } from '../services/products';
 import { getApiErrorMessage } from '../services/apiErrors';
+import { RecipeModal } from '../components/recipes/RecipeModal';
+import { getInventory, type Ingredient } from '../services/inventory';
 
 type ToastState = { type: 'success' | 'error'; message: string } | null;
 
@@ -35,6 +37,8 @@ export function ProductsPage() {
   const [deleting, setDeleting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [recipeProduct, setRecipeProduct] = useState<Product | null>(null);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<ToastState>(null);
@@ -51,10 +55,11 @@ export function ProductsPage() {
     try {
       mode === 'initial' ? setLoading(true) : setRefreshing(true);
       setError('');
-      const [businessesResponse, categoriesResponse, productsResponse] = await Promise.all([getBusinesses(), getCategories(), getProducts()]);
+      const [businessesResponse, categoriesResponse, productsResponse, ingredientsResponse] = await Promise.all([getBusinesses(), getCategories(), getProducts(), getInventory()]);
       setBusinesses(businessesResponse.filter((business) => business.active !== false));
       setCategories(categoriesResponse.filter((category) => category.active));
       setProducts(productsResponse);
+      setIngredients(ingredientsResponse);
     } catch (requestError) {
       const message = getErrorMessage(requestError, 'No pudimos cargar los productos en este momento.');
       setError(message);
@@ -203,6 +208,7 @@ export function ProductsPage() {
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => void handleAvailability(product)} disabled={submitting || deleting} className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60">{product.available ? 'Marcar agotado' : 'Marcar disponible'}</button>
                     <button type="button" onClick={() => { setSelectedProduct(product); setModalOpen(true); }} disabled={submitting || deleting} className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"><Edit3 size={14} />Editar</button>
+                    <button type="button" onClick={() => setRecipeProduct(product)} disabled={submitting || deleting} className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60">Receta</button>
                     <button type="button" onClick={() => void handleDuplicate(product)} disabled={submitting || deleting} className="inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"><Copy size={14} />Duplicar</button>
                     <button type="button" onClick={() => setProductToDelete(product)} disabled={submitting || deleting} className="inline-flex items-center gap-1.5 rounded-2xl border border-rose-200 px-3 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"><Trash2 size={14} />Eliminar</button>
                   </div>
@@ -214,6 +220,7 @@ export function ProductsPage() {
       )}
 
       <ProductFormModal open={modalOpen} product={selectedProduct} businesses={businesses} categories={categories} submitting={submitting} onClose={() => setModalOpen(false)} onSubmit={handleSubmit} />
+      <RecipeModal product={recipeProduct} ingredients={ingredients.filter((ingredient) => ingredient.negocio === recipeProduct?.negocio)} onClose={() => setRecipeProduct(null)} />
       <DeleteProductDialog product={productToDelete} deleting={deleting} onCancel={() => setProductToDelete(null)} onConfirm={() => void handleDelete()} />
     </div>
   );

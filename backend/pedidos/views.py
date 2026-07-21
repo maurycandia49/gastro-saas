@@ -3,6 +3,8 @@ from rest_framework.response import Response
 
 from .models import Pedido
 from .serializers import PedidoSerializer, PedidoStatusSerializer, PublicPedidoCreateSerializer
+from recetas.services import restore_order_inventory
+from django.utils import timezone
 
 
 class PublicPedidoCreateView(generics.CreateAPIView):
@@ -34,7 +36,14 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'detail': 'Solo se puede actualizar el estado del pedido.'}, status=status.HTTP_400_BAD_REQUEST)
 
         pedido = self.get_object()
+        if pedido.status == Pedido.STATUS_CANCELLED and request.data.get('status') != Pedido.STATUS_CANCELLED:
+            return Response({'detail': 'Un pedido cancelado es terminal.'}, status=status.HTTP_400_BAD_REQUEST)
+        old_status = pedido.status
         serializer = PedidoStatusSerializer(pedido, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if old_status != Pedido.STATUS_CANCELLED and pedido.status == Pedido.STATUS_CANCELLED:
+            restore_order_inventory(pedido)
+            pedido.inventory_restored_at = timezone.now()
+            pedido.save(update_fields=['inventory_restored_at', 'updated_at'])
         return Response(self.get_serializer(pedido).data)

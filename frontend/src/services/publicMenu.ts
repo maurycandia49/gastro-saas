@@ -6,6 +6,13 @@ export interface PublicMenuProduct {
   name: string;
   description: string;
   price: string;
+  original_price: string;
+  final_price: string;
+  has_promotion: boolean;
+  promotion_name: string;
+  promotion_featured: boolean;
+  discount_percentage: string | null;
+  out_of_operational_stock: boolean;
   image: string | null;
   available: boolean;
   order: number;
@@ -32,6 +39,18 @@ export interface PublicMenu {
   opening_hours: string;
   instagram: string;
   facebook: string;
+  is_open: boolean;
+  accepts_orders: boolean;
+  opening_status_message: string;
+  delivery_enabled: boolean;
+  pickup_enabled: boolean;
+  minimum_order: string;
+  delivery_fee: string;
+  free_delivery_from: string | null;
+  estimated_delivery_minutes: number | null;
+  estimated_pickup_minutes: number | null;
+  require_customer_phone: boolean;
+  require_delivery_address: boolean;
   categorias: PublicMenuCategory[];
 }
 

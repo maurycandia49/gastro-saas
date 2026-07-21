@@ -10,6 +10,17 @@ interface CartDrawerProps {
   open: boolean;
   businessId: number;
   businessPhone: string;
+  acceptsOrders: boolean;
+  minimumOrder: number;
+  deliveryFee: number;
+  freeDeliveryFrom: number | null;
+  deliveryEnabled: boolean;
+  pickupEnabled: boolean;
+  requirePhone: boolean;
+  requireAddress: boolean;
+  estimatedDeliveryMinutes: number | null;
+  estimatedPickupMinutes: number | null;
+  statusMessage: string;
   formatPrice: (price: number) => string;
   onClose: () => void;
 }
@@ -31,7 +42,16 @@ function buildWhatsappMessage(data: CheckoutData, order: Order, formatPrice: (pr
     data.phone.trim() || 'No informado',
     '',
     'Direccion:',
-    data.address.trim(),
+    data.fulfillment_type === 'delivery' ? data.address.trim() : 'Retiro en local',
+    '',
+    'Modalidad:',
+    data.fulfillment_type === 'delivery' ? 'Envio a domicilio' : 'Retiro en local',
+    '',
+    'Costo de envio:',
+    formatPrice(Number(order.delivery_fee ?? 0)),
+    '',
+    'Tiempo estimado:',
+    order.estimated_minutes ? `${order.estimated_minutes} minutos` : 'No informado',
     '',
     'Pedido:',
     '',
@@ -53,7 +73,7 @@ function buildWhatsappMessage(data: CheckoutData, order: Order, formatPrice: (pr
   return lines.join('\n');
 }
 
-export function CartDrawer({ open, businessId, businessPhone, formatPrice, onClose }: CartDrawerProps) {
+export function CartDrawer({ open, businessId, businessPhone, acceptsOrders, minimumOrder, deliveryFee, freeDeliveryFrom, deliveryEnabled, pickupEnabled, requirePhone, requireAddress, estimatedDeliveryMinutes, estimatedPickupMinutes, statusMessage, formatPrice, onClose }: CartDrawerProps) {
   const { items, totalItems, totalPrice, incrementItem, decrementItem, removeItem, clearCart } = useCart();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,6 +100,7 @@ export function CartDrawer({ open, businessId, businessPhone, formatPrice, onClo
         customer_phone: data.phone.trim(),
         delivery_address: data.address.trim(),
         notes: data.notes.trim(),
+        fulfillment_type: data.fulfillment_type,
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -134,7 +155,15 @@ export function CartDrawer({ open, businessId, businessPhone, formatPrice, onClo
           )}
         </div>
 
-        <div className="border-t border-slate-100 p-5">
+    <div className="border-t border-slate-100 p-5">
+          {!acceptsOrders ? <div className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{statusMessage}</div> : null}
+          {totalPrice < minimumOrder ? <div className="mb-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">Pedido minimo: {formatPrice(minimumOrder)}</div> : null}
+          <div className="mb-3 text-sm text-slate-500">
+            Envio: {deliveryEnabled ? `${freeDeliveryFrom && totalPrice >= freeDeliveryFrom ? 'gratis' : formatPrice(deliveryFee)}` : 'no disponible'} · Retiro: {pickupEnabled ? 'disponible' : 'no disponible'}
+          </div>
+          <div className="mb-3 text-sm text-slate-500">
+            Estimado: {estimatedDeliveryMinutes ? `${estimatedDeliveryMinutes} min envio` : 'envio s/d'} · {estimatedPickupMinutes ? `${estimatedPickupMinutes} min retiro` : 'retiro s/d'}
+          </div>
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm font-medium text-slate-500">Total general</span>
             <span className="text-xl font-semibold text-slate-900">{formatPrice(totalPrice)}</span>
@@ -143,14 +172,14 @@ export function CartDrawer({ open, businessId, businessPhone, formatPrice, onClo
             <button type="button" onClick={clearCart} disabled={items.length === 0} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
               Vaciar carrito
             </button>
-            <button type="button" onClick={() => setCheckoutOpen(true)} disabled={items.length === 0} className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={() => setCheckoutOpen(true)} disabled={items.length === 0 || !acceptsOrders || totalPrice < minimumOrder} className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
               Continuar pedido
             </button>
           </div>
         </div>
       </aside>
 
-      <CheckoutModal open={checkoutOpen} submitting={submitting} onClose={() => setCheckoutOpen(false)} onSubmit={(data) => void handleCheckoutSubmit(data)} />
+      <CheckoutModal open={checkoutOpen} submitting={submitting} onClose={() => setCheckoutOpen(false)} onSubmit={(data) => void handleCheckoutSubmit(data)} deliveryEnabled={deliveryEnabled} pickupEnabled={pickupEnabled} requirePhone={requirePhone} requireAddress={requireAddress} />
     </>
   );
 }

@@ -1,0 +1,6 @@
+import type { Ingredient, InventoryMovement } from '../../services/inventory';
+
+export function InventoryHistoryModal({ ingredient, movements, onClose }: { ingredient: Ingredient | null; movements: InventoryMovement[]; onClose: () => void }) {
+  if (!ingredient) return null;
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6"><div className="flex justify-between"><div><h2 className="text-xl font-semibold">Movimientos</h2><p className="text-sm text-slate-500">{ingredient.name}</p></div><button onClick={onClose}>Cerrar</button></div><div className="mt-5 space-y-3">{movements.map((m) => <div key={m.id} className="rounded-2xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><strong>{m.movement_type}</strong><span>{new Date(m.created_at).toLocaleString('es-AR')}</span></div><p>Cantidad: {m.quantity} · {m.previous_stock} → {m.new_stock}</p><p>Usuario: {m.created_by_name || '-'}</p>{m.pedido ? <p>Pedido #{m.pedido}</p> : null}{m.producto ? <p>Producto #{m.producto}</p> : null}{m.notes ? <p>{m.notes}</p> : null}</div>)}{movements.length === 0 ? <p className="text-sm text-slate-500">Sin movimientos.</p> : null}</div></div></div>;
+}
