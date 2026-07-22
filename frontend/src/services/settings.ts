@@ -21,6 +21,9 @@ export interface BusinessSettings {
   accept_orders_when_closed: boolean;
   automatic_order_acceptance: boolean;
   prevent_sales_without_stock: boolean;
+  target_margin_percentage: string;
+  low_margin_threshold: string;
+  cost_increase_alert_percentage: string;
 }
 
 export interface BusinessSchedule {

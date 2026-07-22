@@ -1,4 +1,5 @@
 import api from './api';
+import type { IngredientCostImpact } from './costing';
 
 export type IngredientUnit = 'kg' | 'g' | 'l' | 'ml' | 'unidad' | 'docena' | 'caja' | 'bolsa' | 'pack';
 export type MovementType = 'purchase' | 'manual_adjustment' | 'recipe_consumption' | 'sale_consumption' | 'loss' | 'return';
@@ -75,7 +76,7 @@ export async function createIngredient(payload: IngredientPayload) {
 }
 
 export async function updateIngredient(id: number, payload: Partial<IngredientPayload>) {
-  const response = await api.patch<Ingredient>(`/inventory/${id}/`, payload);
+  const response = await api.patch<Ingredient | (IngredientCostImpact & { ingredient: Ingredient; new_price: string; affected_products_count: number; alerts_created: number })>(`/inventory/${id}/`, payload);
   return response.data;
 }
 

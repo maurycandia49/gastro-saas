@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from negocios.models import Negocio
+from recetas.costing import register_ingredient_cost_change
 from .models import Ingredient, InventoryMovement
 
 
@@ -32,6 +33,19 @@ class IngredientSerializer(serializers.ModelSerializer):
             if value is not None and value < 0:
                 raise serializers.ValidationError({field: 'No puede ser negativo.'})
         return attrs
+
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+        previous_price = instance.purchase_price
+        ingredient = super().update(instance, validated_data)
+        if 'purchase_price' in validated_data and previous_price != ingredient.purchase_price:
+            register_ingredient_cost_change(
+                ingredient,
+                previous_price,
+                ingredient.purchase_price,
+                user=request.user if request else None,
+            )
+        return ingredient
 
 
 class InventoryMovementSerializer(serializers.ModelSerializer):

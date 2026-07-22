@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from productos.models import Producto
-from .models import RecipeIngredient
+from .costing import create_snapshot_if_changed, recalculate_product_alerts
+from .models import ProductCostSnapshot, RecipeIngredient
 from .serializers import RecipeIngredientSerializer, build_recipe_response
 
 
@@ -29,6 +30,8 @@ class ProductRecipeView(APIView):
         serializer = RecipeIngredientSerializer(data=request.data, context={'product': product})
         serializer.is_valid(raise_exception=True)
         serializer.save(producto=product)
+        create_snapshot_if_changed(product, ProductCostSnapshot.TRIGGER_RECIPE_CHANGE)
+        recalculate_product_alerts(product)
         return Response(build_recipe_response(product), status=status.HTTP_201_CREATED)
 
     def put(self, request, product_id):
@@ -40,6 +43,8 @@ class ProductRecipeView(APIView):
             serializer = RecipeIngredientSerializer(data=item, context={'product': product})
             serializer.is_valid(raise_exception=True)
             serializer.save(producto=product)
+        create_snapshot_if_changed(product, ProductCostSnapshot.TRIGGER_RECIPE_CHANGE)
+        recalculate_product_alerts(product)
         return Response(build_recipe_response(product))
 
 
@@ -53,4 +58,6 @@ class ProductRecipeItemDeleteView(APIView):
             return Response({'detail': 'Ingrediente no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
         product = item.producto
         item.delete()
+        create_snapshot_if_changed(product, ProductCostSnapshot.TRIGGER_RECIPE_CHANGE)
+        recalculate_product_alerts(product)
         return Response(build_recipe_response(product))

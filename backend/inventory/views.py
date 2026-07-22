@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from .models import Ingredient, InventoryMovement
 from .serializers import IngredientSerializer, InventoryMovementSerializer, StockMovementSerializer
 from .services import adjust_stock, decrease_stock, increase_stock
+from recetas.costing import ingredient_cost_impact, recalculate_products_using_ingredient
 
 
 class IngredientViewSet(viewsets.ModelViewSet):
@@ -35,6 +36,25 @@ class IngredientViewSet(viewsets.ModelViewSet):
         if ordering in {'name', '-name', 'current_stock', '-current_stock', 'updated_at', '-updated_at'}:
             queryset = queryset.order_by(ordering)
         return queryset
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        previous_price = instance.purchase_price
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        ingredient = serializer.save()
+        data = serializer.data
+        if 'purchase_price' in serializer.validated_data and previous_price != ingredient.purchase_price:
+            data = {
+                'ingredient': data,
+                'previous_price': previous_price,
+                'new_price': ingredient.purchase_price,
+                'affected_products': recalculate_products_using_ingredient(ingredient),
+            }
+            data['affected_products_count'] = len(data['affected_products'])
+            data['alerts_created'] = sum(item.get('alerts_created', 0) for item in data['affected_products'])
+        return Response(data)
 
     @action(detail=False, methods=['get'])
     def summary(self, request):
@@ -75,3 +95,8 @@ class IngredientViewSet(viewsets.ModelViewSet):
     def movements(self, request, pk=None):
         ingredient = self.get_object()
         return Response(InventoryMovementSerializer(ingredient.movements.select_related('created_by'), many=True).data)
+
+    @action(detail=True, methods=['get'], url_path='cost-impact')
+    def cost_impact(self, request, pk=None):
+        ingredient = self.get_object()
+        return Response(ingredient_cost_impact(ingredient))

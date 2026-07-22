@@ -12,6 +12,7 @@ import { OrdersPage } from '../pages/OrdersPage';
 import { CustomersPage } from '../pages/CustomersPage';
 import { PromotionsPage } from '../pages/PromotionsPage';
 import { InventoryPage } from '../pages/InventoryPage';
+import { CostingPage } from '../pages/CostingPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
       { path: 'clientes', element: <CustomersPage /> },
       { path: 'promociones', element: <PromotionsPage /> },
       { path: 'inventario', element: <InventoryPage /> },
+      { path: 'costos', element: <CostingPage /> },
       { path: 'configuracion', element: <SettingsPage /> },
     ],
   },

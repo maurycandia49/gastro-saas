@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw, Store } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { CreateBusinessModal } from '../components/dashboard/CreateBusinessModal';
 import { EmptyState } from '../components/dashboard/EmptyState';
@@ -14,6 +15,8 @@ import { getApiErrorMessage } from '../services/apiErrors';
 import { getBusinesses, type Business } from '../services/business';
 import { getHourlySales, getMetricsSummary, type HourlySale, type MetricsSummary } from '../services/metrics';
 import { getProfitMetrics, type ProfitMetrics } from '../services/profit';
+import { getProfitabilityAlerts } from '../services/profitabilityAlerts';
+import type { CostingAlert } from '../services/costing';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
@@ -49,6 +52,7 @@ export function DashboardPage() {
   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
   const [summary, setSummary] = useState<MetricsSummary | null>(null);
   const [profitMetrics, setProfitMetrics] = useState<ProfitMetrics | null>(null);
+  const [profitabilityAlerts, setProfitabilityAlerts] = useState<CostingAlert[]>([]);
   const [hourlySales, setHourlySales] = useState<HourlySale[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -91,6 +95,7 @@ export function DashboardPage() {
       setSummary(summaryResponse);
       setHourlySales(hourlyResponse);
       setProfitMetrics(profitResponse);
+      getProfitabilityAlerts(businessId).then((alerts) => setProfitabilityAlerts(alerts.filter((alert) => !alert.resolved).slice(0, 3))).catch(() => setProfitabilityAlerts([]));
       setLastUpdated(new Date());
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, 'No pudimos cargar las metricas del dashboard.'));
@@ -237,6 +242,24 @@ export function DashboardPage() {
 
           <Card title="Rentabilidad" description="Ventas, costos y ganancia bruta segun costos historicos de cada pedido.">
             <ProfitabilityCard metrics={profitMetrics} formatCurrency={formatCurrency} formatPercent={formatPercent} />
+          </Card>
+
+          <Card title="Alertas de rentabilidad" description="Senales del costeo actual del catalogo.">
+            {profitabilityAlerts.length ? (
+              <div className="space-y-3">
+                {profitabilityAlerts.map((alert) => (
+                  <div key={alert.id} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <span className="font-semibold">{alert.product_name ? `${alert.product_name}: ` : ''}</span>{alert.message}
+                  </div>
+                ))}
+                <Link to="/costos" className="inline-flex rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">Ver costos y margenes</Link>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+                No hay alertas activas.
+                <Link to="/costos" className="ml-2 font-semibold text-slate-900">Ver costos y margenes</Link>
+              </div>
+            )}
           </Card>
 
           <div className="grid gap-6 xl:grid-cols-[0.8fr_1fr]">

@@ -139,30 +139,35 @@ export function ProductFormModal({ open, product, businesses, categories, submit
 
           <div className="grid gap-4 sm:grid-cols-[1fr_160px_160px]">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Nombre</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Nombre que vera el cliente</label>
               <input value={name} onChange={(event) => setName(event.target.value)} disabled={submitting} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 disabled:opacity-70" placeholder="Ej. Hamburguesa clasica" />
+              <p className="mt-1 text-xs text-slate-500">Elegilo como apareceria en una carta: claro, corto y vendible.</p>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Precio</label>
-              <input value={price} onChange={(event) => setPrice(event.target.value)} disabled={submitting} inputMode="decimal" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 disabled:opacity-70" placeholder="0.00" />
+              <label className="mb-2 block text-sm font-medium text-slate-700">Precio de venta</label>
+              <input value={price} onChange={(event) => setPrice(event.target.value)} disabled={submitting} inputMode="decimal" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 disabled:opacity-70" placeholder="Ej. 8500" />
+              <p className="mt-1 text-xs text-slate-500">Es el precio final que paga el cliente. Podes usar punto o coma decimal.</p>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Costo</label>
-              <input value={costPrice} onChange={(event) => setCostPrice(event.target.value)} disabled={submitting} inputMode="decimal" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 disabled:opacity-70" placeholder="0.00" />
+              <label className="mb-2 block text-sm font-medium text-slate-700">Costo estimado manual</label>
+              <input value={costPrice} onChange={(event) => setCostPrice(event.target.value)} disabled={submitting} inputMode="decimal" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 disabled:opacity-70" placeholder="Ej. 3200" />
+              <p className="mt-1 text-xs text-slate-500">Opcional. Si tenes receta cargada, Pedilo calcula el costo por insumos.</p>
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Descripcion</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Descripcion comercial</label>
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={submitting} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-slate-400 disabled:opacity-70" placeholder="Ingredientes, acompanamientos o detalle comercial." />
+            <p className="mt-1 text-xs text-slate-500">Ejemplo: Doble carne, cheddar, panceta, cebolla crispy y papas.</p>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Imagen</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Imagen del producto</label>
             <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
               <ImagePlus size={18} className="text-slate-500" />
-              <input value={image} onChange={(event) => setImage(event.target.value)} disabled={submitting} className="min-w-0 flex-1 bg-transparent text-sm outline-none disabled:opacity-70" placeholder="URL de imagen, listo para futuro upload" />
+              <input value={image} onChange={(event) => setImage(event.target.value)} disabled={submitting} className="min-w-0 flex-1 bg-transparent text-sm outline-none disabled:opacity-70" placeholder="Ej. https://misitio.com/foto-hamburguesa.jpg" />
             </div>
+            <p className="mt-1 text-xs text-slate-500">Por ahora se puede pegar una URL. Si lo dejas vacio, se muestra una imagen generica.</p>
           </div>
 
           <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">

@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from categorias.models import Categoria
 from negocios.models import Negocio
+from recetas.costing import create_snapshot_if_changed, recalculate_product_alerts
+from recetas.models import ProductCostSnapshot
 from .models import Producto
 
 
@@ -25,3 +27,11 @@ class ProductoSerializer(serializers.ModelSerializer):
         if request and value.negocio.user_id != request.user.id:
             raise serializers.ValidationError('You can only use categories from your own businesses.')
         return value
+
+    def update(self, instance, validated_data):
+        previous_price = instance.price
+        product = super().update(instance, validated_data)
+        if 'price' in validated_data and previous_price != product.price:
+            create_snapshot_if_changed(product, ProductCostSnapshot.TRIGGER_PRODUCT_PRICE_CHANGE)
+            recalculate_product_alerts(product)
+        return product

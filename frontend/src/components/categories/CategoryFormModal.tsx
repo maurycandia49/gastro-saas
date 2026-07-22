@@ -100,18 +100,21 @@ export function CategoryFormModal({ open, category, businesses, submitting, onCl
 
           <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Nombre</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Nombre de la seccion del menu</label>
               <input value={name} onChange={(event) => setName(event.target.value)} disabled={submitting} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-70" placeholder="Ej. Pizzas" />
+              <p className="mt-1 text-xs text-slate-500">Usa nombres simples que tus clientes reconozcan rapido: Pizzas, Bebidas, Postres.</p>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Orden</label>
-              <input type="number" step="1" value={order} onChange={(event) => setOrder(event.target.value)} disabled={submitting} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-70" />
+              <label className="mb-2 block text-sm font-medium text-slate-700">Orden en el menu</label>
+              <input type="number" step="1" value={order} onChange={(event) => setOrder(event.target.value)} disabled={submitting} placeholder="Ej. 1" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-70" />
+              <p className="mt-1 text-xs text-slate-500">Los numeros mas bajos aparecen primero. Ejemplo: 1 para Promos, 2 para Pizzas.</p>
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Descripcion</label>
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={submitting} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-70" placeholder="Texto breve para orientar al cliente." />
+            <label className="mb-2 block text-sm font-medium text-slate-700">Descripcion para orientar al cliente</label>
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} disabled={submitting} rows={4} className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-70" placeholder="Ej. Pizzas artesanales al horno de piedra, disponibles en 8 porciones." />
+            <p className="mt-1 text-xs text-slate-500">Opcional. Sirve para explicar tamanos, estilos o condiciones de esa seccion.</p>
           </div>
 
           <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">

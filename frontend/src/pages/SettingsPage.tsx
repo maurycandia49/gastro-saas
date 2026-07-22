@@ -111,11 +111,11 @@ export function SettingsPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">Delivery<input type="checkbox" checked={settings.delivery_enabled} onChange={(event) => updateField('delivery_enabled', event.target.checked)} /></label>
               <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">Retiro<input type="checkbox" checked={settings.pickup_enabled} onChange={(event) => updateField('pickup_enabled', event.target.checked)} /></label>
-              <input value={money(settings.minimum_order)} onChange={(event) => updateField('minimum_order', event.target.value)} placeholder="Pedido minimo" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
-              <input value={money(settings.delivery_fee)} onChange={(event) => updateField('delivery_fee', event.target.value)} placeholder="Costo envio" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
-              <input value={money(settings.free_delivery_from)} onChange={(event) => updateField('free_delivery_from', event.target.value)} placeholder="Envio gratis desde" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
-              <input value={settings.estimated_delivery_minutes ?? ''} onChange={(event) => updateField('estimated_delivery_minutes', event.target.value ? Number(event.target.value) : null)} placeholder="Min envio" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
-              <input value={settings.estimated_pickup_minutes ?? ''} onChange={(event) => updateField('estimated_pickup_minutes', event.target.value ? Number(event.target.value) : null)} placeholder="Min retiro" className="rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+              <label className="block text-sm font-medium text-slate-700">Pedido minimo<input value={money(settings.minimum_order)} onChange={(event) => updateField('minimum_order', event.target.value)} placeholder="Ej. 6000" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Monto minimo para aceptar pedidos de delivery.</span></label>
+              <label className="block text-sm font-medium text-slate-700">Costo de envio<input value={money(settings.delivery_fee)} onChange={(event) => updateField('delivery_fee', event.target.value)} placeholder="Ej. 1200" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Importe que se suma al total cuando el cliente elige delivery.</span></label>
+              <label className="block text-sm font-medium text-slate-700">Envio gratis desde<input value={money(settings.free_delivery_from)} onChange={(event) => updateField('free_delivery_from', event.target.value)} placeholder="Ej. 20000" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Dejalo vacio si no ofreces envio gratis.</span></label>
+              <label className="block text-sm font-medium text-slate-700">Tiempo estimado de delivery<input value={settings.estimated_delivery_minutes ?? ''} onChange={(event) => updateField('estimated_delivery_minutes', event.target.value ? Number(event.target.value) : null)} placeholder="Ej. 45" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Minutos aproximados que vera el cliente.</span></label>
+              <label className="block text-sm font-medium text-slate-700">Tiempo estimado de retiro<input value={settings.estimated_pickup_minutes ?? ''} onChange={(event) => updateField('estimated_pickup_minutes', event.target.value ? Number(event.target.value) : null)} placeholder="Ej. 20" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Minutos aproximados para retirar en el local.</span></label>
             </div>
           </Card>
           <Card title="Datos solicitados">
@@ -125,10 +125,33 @@ export function SettingsPage() {
             </div>
           </Card>
           <Card title="WhatsApp">
-            <div className="space-y-3"><input value={settings.whatsapp_number} onChange={(event) => updateField('whatsapp_number', event.target.value)} placeholder="Numero WhatsApp" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><textarea value={settings.whatsapp_message_template} onChange={(event) => updateField('whatsapp_message_template', event.target.value)} placeholder="Plantilla del mensaje" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /></div>
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-slate-700">Numero de WhatsApp para recibir pedidos<input value={settings.whatsapp_number} onChange={(event) => updateField('whatsapp_number', event.target.value)} placeholder="Ej. 5491155551234" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Inclui codigo de pais y area, sin espacios ni guiones si es posible.</span></label>
+              <label className="block text-sm font-medium text-slate-700">Plantilla del mensaje de pedido<textarea value={settings.whatsapp_message_template} onChange={(event) => updateField('whatsapp_message_template', event.target.value)} placeholder="Ej. Hola, quiero confirmar este pedido:" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" /><span className="mt-1 block text-xs font-normal text-slate-500">Texto opcional que acompana el detalle automatico del carrito.</span></label>
+            </div>
           </Card>
           <Card title="Menu">
             <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">Mostrar agotados<input type="checkbox" checked={settings.show_out_of_stock_products} onChange={(event) => updateField('show_out_of_stock_products', event.target.checked)} /></label>
+          </Card>
+          <Card title="Rentabilidad">
+            <p className="mb-4 text-sm text-slate-500">Pedilo usa estos parametros para sugerir precios y avisarte cuando un producto pierde margen.</p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Margen objetivo %
+                <input type="number" value={settings.target_margin_percentage} onChange={(event) => updateField('target_margin_percentage', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Se usa para calcular el precio sugerido.</span>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Limite de margen bajo %
+                <input type="number" value={settings.low_margin_threshold} onChange={(event) => updateField('low_margin_threshold', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Pedilo te avisara cuando un producto quede por debajo.</span>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Alerta aumento costo %
+                <input type="number" value={settings.cost_increase_alert_percentage} onChange={(event) => updateField('cost_increase_alert_percentage', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Dispara alerta si el costo sube al menos este porcentaje.</span>
+              </label>
+            </div>
           </Card>
           <Card title="Horarios">
             <div className="space-y-3">

@@ -215,39 +215,46 @@ export function BusinessPage() {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Nombre</span>
-              <input value={form.name} onChange={(event) => handleFieldChange('name', event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" required />
+              <span className="mb-2 block text-sm font-medium text-slate-700">Nombre comercial</span>
+              <input value={form.name} onChange={(event) => handleFieldChange('name', event.target.value)} placeholder="Ej. La Esquina del Pan" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" required />
+              <span className="mt-1 block text-xs text-slate-500">Es el nombre que tus clientes veran en el menu publico.</span>
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
-              <input type="email" value={form.email} onChange={(event) => handleFieldChange('email', event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" required />
+              <span className="mb-2 block text-sm font-medium text-slate-700">Email de contacto</span>
+              <input type="email" value={form.email} onChange={(event) => handleFieldChange('email', event.target.value)} placeholder="Ej. pedidos@minegocio.com" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" required />
+              <span className="mt-1 block text-xs text-slate-500">Usalo para contacto administrativo o consultas del cliente.</span>
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Telefono</span>
-              <input value={form.phone} onChange={(event) => handleFieldChange('phone', event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+              <span className="mb-2 block text-sm font-medium text-slate-700">Telefono visible para clientes</span>
+              <input value={form.phone} onChange={(event) => handleFieldChange('phone', event.target.value)} placeholder="Ej. 11 5555-1234" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+              <span className="mt-1 block text-xs text-slate-500">Tambien puede usarse como numero de contacto del menu.</span>
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Color principal</span>
+              <span className="mb-2 block text-sm font-medium text-slate-700">Color principal del menu</span>
               <div className="flex gap-3">
                 <input type="color" value={form.primary_color} onChange={(event) => handleFieldChange('primary_color', event.target.value)} className="h-12 w-14 rounded-2xl border border-slate-200 bg-white p-1" />
-                <input value={form.primary_color} onChange={(event) => handleFieldChange('primary_color', event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+                <input value={form.primary_color} onChange={(event) => handleFieldChange('primary_color', event.target.value)} placeholder="Ej. #0f172a" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
               </div>
+              <span className="mt-1 block text-xs text-slate-500">Pedilo lo aplica en botones y detalles visuales del menu publico.</span>
             </label>
           </div>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">Descripcion</span>
-            <textarea value={form.description} onChange={(event) => handleFieldChange('description', event.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+            <span className="mb-2 block text-sm font-medium text-slate-700">Descripcion breve del negocio</span>
+            <textarea value={form.description} onChange={(event) => handleFieldChange('description', event.target.value)} rows={4} placeholder="Ej. Panaderia artesanal, desayunos y almuerzos caseros todos los dias." className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+            <span className="mt-1 block text-xs text-slate-500">Una frase simple ayuda a que el cliente entienda que vendes y por que elegirte.</span>
           </label>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Direccion</span>
-              <input value={form.address} onChange={(event) => handleFieldChange('address', event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+              <span className="mb-2 block text-sm font-medium text-slate-700">Direccion del local</span>
+              <input value={form.address} onChange={(event) => handleFieldChange('address', event.target.value)} placeholder="Ej. Av. Corrientes 1234, CABA" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+              <span className="mt-1 block text-xs text-slate-500">Se muestra en el menu para retiro o referencia de zona.</span>
             </label>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700">Horarios</span>
-              <input value={form.opening_hours} onChange={(event) => handleFieldChange('opening_hours', event.target.value)} className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+              <span className="mb-2 block text-sm font-medium text-slate-700">Horarios visibles</span>
+              <input value={form.opening_hours} onChange={(event) => handleFieldChange('opening_hours', event.target.value)} placeholder="Ej. Lunes a sabado de 9 a 21 hs" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-slate-400" />
+              <span className="mt-1 block text-xs text-slate-500">Texto libre para orientar al cliente; las reglas operativas se configuran aparte.</span>
             </label>
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-slate-700">Instagram</span>

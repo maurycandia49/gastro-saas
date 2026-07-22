@@ -50,6 +50,9 @@ class ConfiguracionNegocio(models.Model):
     accept_orders_when_closed = models.BooleanField(default=False)
     automatic_order_acceptance = models.BooleanField(default=False)
     prevent_sales_without_stock = models.BooleanField(default=False)
+    target_margin_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=35)
+    low_margin_threshold = models.DecimalField(max_digits=5, decimal_places=2, default=20)
+    cost_increase_alert_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=10)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

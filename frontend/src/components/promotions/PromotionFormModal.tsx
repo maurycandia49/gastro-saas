@@ -113,23 +113,59 @@ export function PromotionFormModal({
         </div>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nombre" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
-            <select value={businessId} onChange={(event) => setBusinessId(event.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">{businesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}</select>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Nombre de la promocion</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. 20% en pizzas los martes" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+              <span className="mt-1 block text-xs text-slate-500">Usa un nombre interno facil de reconocer en el panel.</span>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Negocio donde aplica</span>
+              <select value={businessId} onChange={(event) => setBusinessId(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">{businesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}</select>
+              <span className="mt-1 block text-xs text-slate-500">La promocion solo afectara productos o categorias de este negocio.</span>
+            </label>
           </div>
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descripcion" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">Descripcion para recordar la regla</span>
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ej. Promo valida solo para delivery, no acumulable con otros descuentos." className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+            <span className="mt-1 block text-xs text-slate-500">Opcional. Ayuda al equipo a entender cuando usar esta promocion.</span>
+          </label>
           <div className="grid gap-4 sm:grid-cols-2">
-            <select value={targetType} onChange={(event) => setTargetType(event.target.value as 'product' | 'category')} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none"><option value="product">Producto</option><option value="category">Categoria</option></select>
-            <select value={targetId} onChange={(event) => setTargetId(event.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
-              {(targetType === 'product' ? availableProducts : availableCategories).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Aplicar descuento sobre</span>
+              <select value={targetType} onChange={(event) => setTargetType(event.target.value as 'product' | 'category')} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none"><option value="product">Un producto puntual</option><option value="category">Toda una categoria</option></select>
+              <span className="mt-1 block text-xs text-slate-500">Elegir categoria aplica la promocion a todos sus productos.</span>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">{targetType === 'product' ? 'Producto promocionado' : 'Categoria promocionada'}</span>
+              <select value={targetId} onChange={(event) => setTargetId(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
+                {(targetType === 'product' ? availableProducts : availableCategories).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <span className="mt-1 block text-xs text-slate-500">Solo aparecen opciones del negocio seleccionado.</span>
+            </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <select value={promotionType} onChange={(event) => setPromotionType(event.target.value as PromotionType)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none"><option value="percentage">Porcentaje</option><option value="fixed_price">Precio fijo</option></select>
-            <input value={value} onChange={(event) => setValue(event.target.value)} placeholder={promotionType === 'percentage' ? '20' : '12000'} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Tipo de beneficio</span>
+              <select value={promotionType} onChange={(event) => setPromotionType(event.target.value as PromotionType)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none"><option value="percentage">Descuento porcentual</option><option value="fixed_price">Precio fijo promocional</option></select>
+              <span className="mt-1 block text-xs text-slate-500">{promotionType === 'percentage' ? 'Ejemplo: 20 significa 20% menos.' : 'Ejemplo: 12000 deja el producto a $12.000.'}</span>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">{promotionType === 'percentage' ? 'Porcentaje de descuento' : 'Precio final promocional'}</span>
+              <input value={value} onChange={(event) => setValue(event.target.value)} placeholder={promotionType === 'percentage' ? 'Ej. 20' : 'Ej. 12000'} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+              <span className="mt-1 block text-xs text-slate-500">Ingresa solo el numero, sin simbolos.</span>
+            </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
-            <input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Inicio de la promocion</span>
+              <input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+              <span className="mt-1 block text-xs text-slate-500">Desde este momento Pedilo puede mostrar el precio promocional.</span>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Fin de la promocion</span>
+              <input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+              <span className="mt-1 block text-xs text-slate-500">Debe ser posterior al inicio. Al finalizar, vuelve el precio normal.</span>
+            </label>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-sm">Activa<input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} /></label>

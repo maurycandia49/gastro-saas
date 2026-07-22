@@ -1,16 +1,17 @@
-import { LayoutDashboard, Store, Tag, Boxes, ReceiptText, Users, Sparkles, Settings, ChevronLeft, ChevronRight, Warehouse } from 'lucide-react';
+import { Boxes, ChevronLeft, ChevronRight, LayoutDashboard, ReceiptText, Settings, Sparkles, Store, Tag, TrendingUp, Users, Warehouse } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/negocio', label: 'Mi negocio', icon: Store },
-  { to: '/categorias', label: 'Categorías', icon: Tag },
+  { to: '/categorias', label: 'Categorias', icon: Tag },
   { to: '/productos', label: 'Productos', icon: Boxes },
   { to: '/pedidos', label: 'Pedidos', icon: ReceiptText },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/promociones', label: 'Promociones', icon: Sparkles },
   { to: '/inventario', label: 'Inventario', icon: Warehouse },
-  { to: '/configuracion', label: 'Configuración', icon: Settings },
+  { to: '/costos', label: 'Costos y margenes', icon: TrendingUp },
+  { to: '/configuracion', label: 'Configuracion', icon: Settings },
 ];
 
 interface SidebarProps {
@@ -24,7 +25,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">P</div>
-          {!collapsed && <div><p className="font-semibold text-slate-900">Pedilo</p><p className="text-sm text-slate-500">SaaS gastronómico</p></div>}
+          {!collapsed && <div><p className="font-semibold text-slate-900">Pedilo</p><p className="text-sm text-slate-500">SaaS gastronomico</p></div>}
         </div>
         <button onClick={onToggle} className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
