@@ -24,6 +24,10 @@ export interface BusinessSettings {
   target_margin_percentage: string;
   low_margin_threshold: string;
   cost_increase_alert_percentage: string;
+  dead_product_days: number;
+  inactive_customer_days: number;
+  daily_sales_target: string | null;
+  monthly_sales_target: string | null;
 }
 
 export interface BusinessSchedule {

@@ -1,0 +1,16 @@
+Distribuidora Sur SRL
+Av. Siempre Viva 742 - Localidad Centro - CP 1000
+Tel 11 4444 5555 ventas@distribuidorasur.com.ar
+CUIT 20-12345678-9
+Factura A-0001-00001234
+Fecha 26/07/2026
+Condicion de venta Cuenta corriente
+Codigo Descripcion Cantidad Unidad Precio Unitario Importe
+001 MOZZARELLA BARRAZA 10 kg 10500 105000
+002 ACEITE NATURA 2 unidad 1200 2400
+HARINA 000
+5 kg 900 4500
+Subtotal 111900
+IVA 21% 23499
+TOTAL 135399
+CAE 12345678901234

@@ -53,6 +53,10 @@ class ConfiguracionNegocio(models.Model):
     target_margin_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=35)
     low_margin_threshold = models.DecimalField(max_digits=5, decimal_places=2, default=20)
     cost_increase_alert_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=10)
+    dead_product_days = models.PositiveIntegerField(default=14)
+    inactive_customer_days = models.PositiveIntegerField(default=21)
+    daily_sales_target = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    monthly_sales_target = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

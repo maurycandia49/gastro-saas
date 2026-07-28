@@ -99,7 +99,7 @@ export function GlobalSearch() {
 
   return (
     <div ref={rootRef} className="relative w-full max-w-xl">
-      <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 transition focus-within:border-slate-400 focus-within:bg-white">
+      <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 transition focus-within:border-slate-400 focus-within:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:focus-within:border-slate-600 dark:focus-within:bg-slate-900">
         <Search size={16} />
         <input
           ref={inputRef}
@@ -111,9 +111,9 @@ export function GlobalSearch() {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Buscar productos, pedidos, clientes..."
-          className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
-        <kbd className="hidden rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-400 sm:inline">Ctrl K</kbd>
+        <kbd className="hidden rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 sm:inline">Ctrl K</kbd>
       </div>
       {open ? <SearchResultsDropdown query={query} results={results} loading={loading} error={error} activeIndex={activeIndex} onSelect={selectResult} onRetry={runSearch} /> : null}
     </div>

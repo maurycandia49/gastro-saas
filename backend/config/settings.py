@@ -18,6 +18,24 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_local_env():
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        # In development the project-local .env is the source of truth.
+        # This prevents a stale terminal/global OCR_PROVIDER=paddle from
+        # forcing Django to import the local Paddle provider inside backend/venv.
+        os.environ[key.strip()] = value.strip()
+
+
+load_local_env()
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -50,6 +68,9 @@ INSTALLED_APPS = [
     'promociones',
     'inventory',
     'recetas',
+    'opportunities',
+    'purchases',
+    'ocr',
 ]
 
 MIDDLEWARE = [
@@ -90,6 +111,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # Desarrollo usa SQLite; produccion debe usar PostgreSQL para mejor concurrencia.
+        'OPTIONS': {
+            'timeout': 20,
+        },
     }
 }
 
@@ -123,6 +148,14 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
+
+OCR_PROVIDER = os.getenv('OCR_PROVIDER', 'paddle')
+OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'http://127.0.0.1:8010')
+OCR_PADDLE_LANG = os.getenv('OCR_PADDLE_LANG', 'es')
+OCR_PADDLE_VERSION = os.getenv('OCR_PADDLE_VERSION', '')
+OCR_TIMEOUT_SECONDS = int(os.getenv('OCR_TIMEOUT_SECONDS', '120'))
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+OPENAI_VISION_MODEL = os.getenv('OPENAI_VISION_MODEL', '')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

@@ -17,6 +17,7 @@ import { getHourlySales, getMetricsSummary, type HourlySale, type MetricsSummary
 import { getProfitMetrics, type ProfitMetrics } from '../services/profit';
 import { getProfitabilityAlerts } from '../services/profitabilityAlerts';
 import type { CostingAlert } from '../services/costing';
+import { getOpportunitiesSummary, type OpportunitySummary } from '../services/opportunities';
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
@@ -53,6 +54,7 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<MetricsSummary | null>(null);
   const [profitMetrics, setProfitMetrics] = useState<ProfitMetrics | null>(null);
   const [profitabilityAlerts, setProfitabilityAlerts] = useState<CostingAlert[]>([]);
+  const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary | null>(null);
   const [hourlySales, setHourlySales] = useState<HourlySale[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,6 +98,7 @@ export function DashboardPage() {
       setHourlySales(hourlyResponse);
       setProfitMetrics(profitResponse);
       getProfitabilityAlerts(businessId).then((alerts) => setProfitabilityAlerts(alerts.filter((alert) => !alert.resolved).slice(0, 3))).catch(() => setProfitabilityAlerts([]));
+      getOpportunitiesSummary(businessId).then(setOpportunitySummary).catch(() => setOpportunitySummary(null));
       setLastUpdated(new Date());
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, 'No pudimos cargar las metricas del dashboard.'));
@@ -258,6 +261,26 @@ export function DashboardPage() {
               <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
                 No hay alertas activas.
                 <Link to="/costos" className="ml-2 font-semibold text-slate-900">Ver costos y margenes</Link>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Oportunidades" description="Acciones concretas detectadas por Pedilo.">
+            {opportunitySummary?.top_opportunities.length ? (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">Hoy Pedilo encontro <span className="font-semibold text-slate-900">{opportunitySummary.active_count}</span> oportunidades activas.</p>
+                {opportunitySummary.top_opportunities.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                    <p className="font-semibold text-slate-900">{item.title}</p>
+                    <p className="mt-1 text-slate-500">{item.message}</p>
+                  </div>
+                ))}
+                <Link to="/oportunidades" className="inline-flex rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">Ver todas</Link>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+                Todavia no hay oportunidades generadas.
+                <Link to="/oportunidades" className="ml-2 font-semibold text-slate-900">Analizar ahora</Link>
               </div>
             )}
           </Card>

@@ -42,13 +42,13 @@ export function SearchResultsDropdown({
   if (!query) return null;
 
   return (
-    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[75vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white py-2 shadow-2xl sm:max-h-[70vh]">
+    <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[75vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white py-2 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:max-h-[70vh]">
       {query.length < 2 ? <SearchEmptyState message="Escribi al menos 2 caracteres" /> : null}
       {query.length >= 2 && loading ? <div className="flex items-center gap-2 px-4 py-6 text-sm text-slate-500"><Loader2 className="animate-spin" size={16} /> Buscando...</div> : null}
       {query.length >= 2 && error ? (
         <div className="px-4 py-5 text-sm text-red-600">
           {error}
-          <button type="button" onClick={onRetry} className="ml-2 font-semibold text-slate-900">Reintentar</button>
+          <button type="button" onClick={onRetry} className="ml-2 font-semibold text-slate-900 dark:text-slate-100">Reintentar</button>
         </div>
       ) : null}
       {query.length >= 2 && !loading && !error && flat.length === 0 ? <SearchEmptyState message={`No encontramos resultados para '${query}'`} /> : null}

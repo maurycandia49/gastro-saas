@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   font-family: Inter, 'Segoe UI', Roboto, sans-serif;
@@ -29,4 +30,130 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .admin-shell,
+  .admin-shell * {
+    transition-duration: 150ms;
+    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow;
+  }
+}
+
+.dark .admin-shell .bg-white,
+.dark .admin-shell .bg-white\/80 {
+  background-color: rgb(15 23 42 / 0.92);
+}
+
+.dark .admin-shell .bg-slate-50,
+.dark .admin-shell .bg-slate-100 {
+  background-color: rgb(30 41 59 / 0.72);
+}
+
+.dark .admin-shell .bg-slate-900 {
+  background-color: rgb(226 232 240);
+}
+
+.dark .admin-shell .text-slate-900 {
+  color: rgb(241 245 249);
+}
+
+.dark .admin-shell .text-slate-800,
+.dark .admin-shell .text-slate-700,
+.dark .admin-shell .text-slate-600 {
+  color: rgb(203 213 225);
+}
+
+.dark .admin-shell .text-slate-500,
+.dark .admin-shell .text-slate-400 {
+  color: rgb(148 163 184);
+}
+
+.dark .admin-shell .text-white {
+  color: rgb(15 23 42);
+}
+
+.dark .admin-shell .border-slate-100,
+.dark .admin-shell .border-slate-200,
+.dark .admin-shell .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(30 41 59);
+}
+
+.dark .admin-shell input,
+.dark .admin-shell select,
+.dark .admin-shell textarea {
+  border-color: rgb(51 65 85);
+  background-color: rgb(15 23 42);
+  color: rgb(241 245 249);
+}
+
+.dark .admin-shell input::placeholder,
+.dark .admin-shell textarea::placeholder {
+  color: rgb(100 116 139);
+}
+
+.dark .admin-shell input:focus,
+.dark .admin-shell select:focus,
+.dark .admin-shell textarea:focus {
+  border-color: rgb(148 163 184);
+  outline: 2px solid rgb(71 85 105);
+  outline-offset: 1px;
+}
+
+.dark .admin-shell input:disabled,
+.dark .admin-shell select:disabled,
+.dark .admin-shell textarea:disabled,
+.dark .admin-shell button:disabled {
+  opacity: 0.55;
+}
+
+.dark .admin-shell table thead {
+  color: rgb(148 163 184);
+}
+
+.dark .admin-shell tbody tr:hover {
+  background-color: rgb(30 41 59 / 0.55);
+}
+
+.dark .admin-shell .shadow-sm,
+.dark .admin-shell .shadow-xl,
+.dark .admin-shell .shadow-2xl {
+  box-shadow: 0 20px 45px rgb(0 0 0 / 0.35);
+}
+
+.dark .admin-shell .bg-red-50 {
+  background-color: rgb(127 29 29 / 0.25);
+}
+
+.dark .admin-shell .text-red-700,
+.dark .admin-shell .text-red-600 {
+  color: rgb(252 165 165);
+}
+
+.dark .admin-shell .border-red-200 {
+  border-color: rgb(127 29 29 / 0.65);
+}
+
+.dark .admin-shell .bg-emerald-50 {
+  background-color: rgb(6 78 59 / 0.28);
+}
+
+.dark .admin-shell .text-emerald-800,
+.dark .admin-shell .text-emerald-700 {
+  color: rgb(110 231 183);
+}
+
+.dark .admin-shell .bg-amber-50,
+.dark .admin-shell .bg-amber-100 {
+  background-color: rgb(120 53 15 / 0.28);
+}
+
+.dark .admin-shell .text-amber-900,
+.dark .admin-shell .text-amber-800,
+.dark .admin-shell .text-amber-700 {
+  color: rgb(252 211 77);
+}
+
+.dark .admin-shell .border-amber-200 {
+  border-color: rgb(146 64 14 / 0.7);
 }

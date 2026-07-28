@@ -153,6 +153,31 @@ export function SettingsPage() {
               </label>
             </div>
           </Card>
+          <Card title="Oportunidades">
+            <p className="mb-4 text-sm text-slate-500">Configura los umbrales que usa Pedilo para detectar acciones recomendadas.</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
+                Dias para producto sin ventas
+                <input type="number" value={settings.dead_product_days} onChange={(event) => updateField('dead_product_days', Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Pedilo sugerira revisar productos activos que no se vendan en este periodo.</span>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Dias para cliente frecuente inactivo
+                <input type="number" value={settings.inactive_customer_days} onChange={(event) => updateField('inactive_customer_days', Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">No envia mensajes automaticamente; solo muestra la oportunidad.</span>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Meta diaria de ventas
+                <input value={settings.daily_sales_target ?? ''} onChange={(event) => updateField('daily_sales_target', event.target.value || null)} placeholder="Ej. 150000" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Opcional. Se usara para mostrar progreso comercial.</span>
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Meta mensual de ventas
+                <input value={settings.monthly_sales_target ?? ''} onChange={(event) => updateField('monthly_sales_target', event.target.value || null)} placeholder="Ej. 3500000" className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" />
+                <span className="mt-1 block text-xs font-normal text-slate-500">Opcional. No se genera automaticamente.</span>
+              </label>
+            </div>
+          </Card>
           <Card title="Horarios">
             <div className="space-y-3">
               {days.map((day, index) => {

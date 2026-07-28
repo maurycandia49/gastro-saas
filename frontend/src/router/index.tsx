@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
 import { DashboardPage } from '../pages/DashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
@@ -11,8 +12,10 @@ import { PublicMenuPage } from '../pages/PublicMenuPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { CustomersPage } from '../pages/CustomersPage';
 import { PromotionsPage } from '../pages/PromotionsPage';
+import { PurchasesPage } from '../pages/PurchasesPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { CostingPage } from '../pages/CostingPage';
+import { OpportunitiesPage } from '../pages/OpportunitiesPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
@@ -59,8 +62,10 @@ export const router = createBrowserRouter([
       { path: 'pedidos', element: <OrdersPage /> },
       { path: 'clientes', element: <CustomersPage /> },
       { path: 'promociones', element: <PromotionsPage /> },
+      { path: 'compras', element: <PurchasesPage /> },
       { path: 'inventario', element: <InventoryPage /> },
       { path: 'costos', element: <CostingPage /> },
+      { path: 'oportunidades', element: <OpportunitiesPage /> },
       { path: 'configuracion', element: <SettingsPage /> },
     ],
   },
@@ -72,8 +77,10 @@ export const router = createBrowserRouter([
 
 export function AppRouter() {
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

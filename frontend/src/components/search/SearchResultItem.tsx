@@ -17,7 +17,7 @@ function highlight(text: string, query: string) {
   return (
     <>
       {text.slice(0, index)}
-      <mark className="rounded bg-amber-100 px-0.5 text-slate-900">{text.slice(index, index + query.length)}</mark>
+      <mark className="rounded bg-amber-100 px-0.5 text-slate-900 dark:bg-amber-300 dark:text-slate-950">{text.slice(index, index + query.length)}</mark>
       {text.slice(index + query.length)}
     </>
   );
@@ -26,11 +26,11 @@ function highlight(text: string, query: string) {
 export function SearchResultItem({ group, result, query, active, onSelect }: { group: SearchGroupKey; result: SearchResult; query: string; active: boolean; onSelect: () => void }) {
   const Icon = icons[group];
   return (
-    <button type="button" onClick={onSelect} className={`flex w-full items-start gap-3 px-4 py-3 text-left transition ${active ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
-      <span className="mt-0.5 rounded-xl bg-slate-900 p-2 text-white"><Icon size={15} /></span>
+    <button type="button" onClick={onSelect} className={`flex w-full items-start gap-3 px-4 py-3 text-left transition ${active ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/70'}`}>
+      <span className="mt-0.5 rounded-xl bg-slate-900 p-2 text-white dark:bg-slate-100 dark:text-slate-950"><Icon size={15} /></span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-slate-900">{highlight(result.title, query)}</span>
-        <span className="mt-0.5 block truncate text-xs text-slate-500">{highlight(result.subtitle || '', query)}</span>
+        <span className="block truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{highlight(result.title, query)}</span>
+        <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{highlight(result.subtitle || '', query)}</span>
       </span>
     </button>
   );
