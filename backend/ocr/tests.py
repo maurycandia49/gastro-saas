@@ -13,9 +13,10 @@ import requests
 from inventory.models import Ingredient, InventoryMovement
 from negocios.models import Negocio
 from purchases.models import Supplier
-from .matcher import match_line_to_ingredient
+from .matcher import match_invoice_items, match_line_to_ingredient
 from .models import IngredientAlias
 from .parser import parse_invoice_text
+from .presentations import parse_purchase_presentation
 from .providers.base import OCRBox, OCRDocument, OCRLine, OCRPage, OCRWord, prepare_image
 from .services import OCREngineNotAvailable, OCRInvalidImage, extract_document, get_ocr_status
 
@@ -172,6 +173,92 @@ class OCRTests(TestCase):
         self.assertGreaterEqual(match['confidence'], 90)
         self.assertFalse(match['requires_review'])
 
+    def test_presentation_parser_harina_x25kg_uses_ocr_quantity_as_packages(self):
+        result = parse_purchase_presentation('Harina 000 x25kg', '2', '24000')
+        self.assertEqual(result['presentation_type'], 'bag')
+        self.assertEqual(result['package_quantity'], '2')
+        self.assertEqual(result['content_per_package'], '25')
+        self.assertEqual(result['content_unit'], 'kg')
+        self.assertEqual(result['total_stock_quantity'], '50')
+        self.assertEqual(result['base_unit_cost'], '480')
+
+    def test_presentation_parser_sal_x25kg(self):
+        result = parse_purchase_presentation('Sal Fina x25kg', '3', '2400')
+        self.assertEqual(result['presentation_type'], 'bag')
+        self.assertEqual(result['package_quantity'], '3')
+        self.assertEqual(result['content_per_package'], '25')
+        self.assertEqual(result['total_stock_quantity'], '75')
+        self.assertEqual(result['base_unit_cost'], '32')
+
+    def test_presentation_parser_azucar_x50kg(self):
+        result = parse_purchase_presentation('Azucar x50kg', '1', '38400')
+        self.assertEqual(result['presentation_type'], 'bag')
+        self.assertEqual(result['content_per_package'], '50')
+        self.assertEqual(result['total_stock_quantity'], '50')
+        self.assertEqual(result['base_unit_cost'], '768')
+
+    def test_presentation_parser_box_x12_uses_units(self):
+        result = parse_purchase_presentation('Caja x12', '2', '36000')
+        self.assertEqual(result['presentation_type'], 'box')
+        self.assertEqual(result['package_quantity'], '2')
+        self.assertEqual(result['content_per_package'], '12')
+        self.assertEqual(result['content_unit'], 'unidad')
+        self.assertEqual(result['total_stock_quantity'], '24')
+
+    def test_presentation_parser_bottle_500ml(self):
+        result = parse_purchase_presentation('Botella 500ml', '6', '9000')
+        self.assertEqual(result['presentation_type'], 'bottle')
+        self.assertEqual(result['package_quantity'], '6')
+        self.assertEqual(result['content_per_package'], '500')
+        self.assertEqual(result['content_unit'], 'ml')
+        self.assertEqual(result['total_stock_quantity'], '3000')
+
+    def test_matcher_ignores_presentation_tokens_for_ingredient_similarity(self):
+        flour = Ingredient.objects.create(negocio=self.business, name='Harina 000', unit='kg', purchase_price=0)
+        match = match_line_to_ingredient('Harina 000 x25kg', self.business, self.supplier)
+        self.assertEqual(match['ingredient'], flour)
+        self.assertGreaterEqual(match['confidence'], 90)
+
+    def test_match_invoice_items_adds_presentation_payload(self):
+        flour = Ingredient.objects.create(negocio=self.business, name='Harina 000', unit='kg', purchase_price=0)
+        matched = match_invoice_items([{
+            'detected_text': 'Harina 000 x25kg',
+            'quantity': '2',
+            'unit_price': '12000',
+            'subtotal': '24000',
+            'confidence': 98,
+        }], self.business, self.supplier)
+        item = matched[0]
+        self.assertEqual(item['ingredient'], flour.id)
+        self.assertEqual(item['package_quantity'], '2')
+        self.assertEqual(item['content_per_package'], '25')
+        self.assertEqual(item['total_stock_quantity'], '50')
+        self.assertEqual(item['base_unit_cost'], '480')
+
+    def test_match_invoice_items_reuses_learned_alias_presentation_when_description_has_no_unit(self):
+        sugar = Ingredient.objects.create(negocio=self.business, name='Azucar', unit='kg', purchase_price=0)
+        IngredientAlias.objects.create(
+            ingredient=sugar,
+            supplier=self.supplier,
+            detected_text='azucar especial',
+            package_type='bag',
+            content_per_package='50',
+            content_unit='kg',
+            times_confirmed=2,
+        )
+        matched = match_invoice_items([{
+            'detected_text': 'Azucar Especial',
+            'quantity': '1',
+            'unit_price': '38400',
+            'subtotal': '38400',
+            'confidence': 98,
+        }], self.business, self.supplier)
+        item = matched[0]
+        self.assertEqual(item['presentation_source'], 'learned_alias')
+        self.assertEqual(item['presentation_type'], 'bag')
+        self.assertEqual(item['content_per_package'], '50')
+        self.assertEqual(item['base_unit_cost'], '768')
+
     def test_ocr_endpoint_returns_structure_without_creating_stock_movements(self):
         response = self.client.post(reverse('purchase-ocr'), {
             'business_id': self.business.id,
@@ -197,29 +284,29 @@ class OCRTests(TestCase):
         self.assertFalse(status['available'])
         self.assertEqual(status['provider'], 'none')
 
-    @override_settings(OCR_PROVIDER='paddle')
+    @override_settings(OCR_PROVIDER='paddle_local')
     def test_paddle_provider_available_status(self):
         with patch('ocr.providers.paddle.PaddleOCRProvider.is_available', return_value=(True, 'PaddleOCR disponible.')):
             status = get_ocr_status()
         self.assertTrue(status['available'])
-        self.assertEqual(status['provider'], 'paddle')
+        self.assertEqual(status['provider'], 'paddle_local')
         self.assertIn('language', status)
         self.assertIn('ocr_version', status)
 
-    @override_settings(OCR_PROVIDER='paddle', OCR_PADDLE_LANG='xx')
+    @override_settings(OCR_PROVIDER='paddle_local', OCR_PADDLE_LANG='xx')
     def test_invalid_paddle_language_returns_unavailable_status(self):
         status = get_ocr_status()
         self.assertFalse(status['available'])
         self.assertEqual(status['language'], 'xx')
         self.assertIn('Idioma PaddleOCR invalido', status['message'])
 
-    @override_settings(OCR_PROVIDER='paddle', OCR_PADDLE_LANG='es', OCR_PADDLE_VERSION='')
+    @override_settings(OCR_PROVIDER='paddle_local', OCR_PADDLE_LANG='es', OCR_PADDLE_VERSION='')
     def test_valid_paddle_language_and_default_version(self):
         status = get_ocr_status()
         self.assertEqual(status['language'], 'es')
         self.assertEqual(status['ocr_version'], '')
 
-    @override_settings(OCR_PROVIDER='paddle')
+    @override_settings(OCR_PROVIDER='paddle_local')
     def test_paddle_extraction_successful_simulated(self):
         document = OCRDocument(
             raw_text='Distribuidora Sur\nMUZZ BARR 10 kg 10500 105000',
@@ -234,14 +321,14 @@ class OCRTests(TestCase):
         self.assertEqual(result.provider, 'paddle')
         self.assertEqual(result.lines[0].box.left, 10)
 
-    @override_settings(OCR_PROVIDER='paddle')
+    @override_settings(OCR_PROVIDER='paddle_local')
     def test_paddle_not_available_raises_clear_error(self):
         image = SimpleUploadedFile('factura.png', b'image-bytes', content_type='image/png')
         with patch('ocr.providers.paddle.PaddleOCRProvider.is_available', return_value=(False, 'PaddleOCR no esta disponible')):
             with self.assertRaises(OCREngineNotAvailable):
                 extract_document(image=image)
 
-    @override_settings(OCR_PROVIDER='paddle', OCR_PADDLE_LANG='xx')
+    @override_settings(OCR_PROVIDER='paddle_local', OCR_PADDLE_LANG='xx')
     def test_endpoint_returns_controlled_configuration_error(self):
         image = SimpleUploadedFile('factura.png', b'image-bytes', content_type='image/png')
         response = self.client.post(reverse('purchase-ocr'), {'business_id': self.business.id, 'image': image})
@@ -251,7 +338,7 @@ class OCRTests(TestCase):
         self.assertIn('message', response.data)
         self.assertIn('processing_time_ms', response.data)
 
-    @override_settings(OCR_PROVIDER='paddle', OCR_PADDLE_LANG='es', OCR_PADDLE_VERSION='')
+    @override_settings(OCR_PROVIDER='paddle_local', OCR_PADDLE_LANG='es', OCR_PADDLE_VERSION='')
     def test_paddle_engine_is_reused_between_requests(self):
         from ocr.providers import paddle as paddle_provider_module
         from ocr.providers.paddle import PaddleOCRProvider
@@ -292,7 +379,7 @@ class OCRTests(TestCase):
         self.assertEqual(response.data['items'][0]['detected_text'], 'MUZZ BARR')
         self.assertIn('unresolved_lines', response.data)
 
-    @override_settings(OCR_PROVIDER='paddle')
+    @override_settings(OCR_PROVIDER='paddle_local')
     def test_ocr_endpoint_returns_friendly_error_when_engine_missing(self):
         image = SimpleUploadedFile('factura.png', b'image-bytes', content_type='image/png')
         with patch('ocr.providers.paddle.PaddleOCRProvider.is_available', return_value=(False, 'PaddleOCR no esta disponible')):
@@ -309,13 +396,13 @@ class OCRTests(TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_ocr_status_endpoint_is_authenticated_and_safe(self):
-        with patch('ocr.providers.paddle.PaddleOCRProvider.is_available', return_value=(True, 'ok')):
+        with patch('ocr.providers.paddle_service.PaddleServiceProvider.status', return_value={'provider': 'service', 'available': True, 'engine': 'PaddleOCR', 'message': 'ok'}):
             response = self.client.get(reverse('ocr_status'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('provider', response.data)
         self.assertIn('available', response.data)
 
-    @override_settings(OCR_PROVIDER='paddle_service', OCR_SERVICE_URL='http://127.0.0.1:8010')
+    @override_settings(OCR_PROVIDER='service', OCR_SERVICE_URL='http://127.0.0.1:8010')
     def test_factory_uses_paddle_service_without_importing_local_paddle_modules(self):
         sys.modules.pop('paddle', None)
         sys.modules.pop('paddleocr', None)
@@ -330,15 +417,15 @@ class OCRTests(TestCase):
         self.assertNotIn('paddleocr', sys.modules)
         self.assertNotIn('ocr.providers.paddle', sys.modules)
 
-    @override_settings(OCR_PROVIDER='paddle_service', OCR_SERVICE_URL='http://127.0.0.1:8010')
+    @override_settings(OCR_PROVIDER='service', OCR_SERVICE_URL='http://127.0.0.1:8010')
     def test_paddle_service_status_unavailable_when_not_started(self):
         with patch('ocr.providers.paddle_service.requests.get', side_effect=requests.ConnectionError()):
             status = get_ocr_status()
         self.assertFalse(status['available'])
-        self.assertEqual(status['provider'], 'paddle_service')
-        self.assertIn('no esta iniciado', status['message'])
+        self.assertEqual(status['provider'], 'service')
+        self.assertIn('apagado', status['message'])
 
-    @override_settings(OCR_PROVIDER='paddle_service', OCR_SERVICE_URL='http://127.0.0.1:8010')
+    @override_settings(OCR_PROVIDER='service', OCR_SERVICE_URL='http://127.0.0.1:8010')
     def test_paddle_service_timeout_returns_friendly_endpoint_error(self):
         image = SimpleUploadedFile('factura.png', b'image-bytes', content_type='image/png')
         with patch('ocr.providers.paddle_service.PaddleServiceProvider.is_available', return_value=(True, 'ok')), patch('ocr.providers.paddle_service.requests.post', side_effect=requests.Timeout()):
@@ -347,7 +434,7 @@ class OCRTests(TestCase):
         self.assertEqual(response.data['status'], 'error')
         self.assertEqual(response.data['code'], 'OCR_SERVICE_TIMEOUT')
 
-    @override_settings(OCR_PROVIDER='paddle_service', OCR_SERVICE_URL='http://127.0.0.1:8010')
+    @override_settings(OCR_PROVIDER='service', OCR_SERVICE_URL='http://127.0.0.1:8010')
     def test_paddle_service_valid_response_is_transformed_by_django(self):
         image = SimpleUploadedFile('factura.png', b'image-bytes', content_type='image/png')
 
@@ -373,7 +460,7 @@ class OCRTests(TestCase):
         self.assertEqual(response.data['provider'], 'paddle')
         self.assertEqual(response.data['items'][0]['detected_text'], 'MUZZ BARR')
 
-    @override_settings(OCR_PROVIDER='paddle_service', OCR_SERVICE_URL='http://127.0.0.1:8010')
+    @override_settings(OCR_PROVIDER='service', OCR_SERVICE_URL='http://127.0.0.1:8010')
     def test_paddle_service_invalid_response_returns_friendly_error(self):
         image = SimpleUploadedFile('factura.png', b'image-bytes', content_type='image/png')
 

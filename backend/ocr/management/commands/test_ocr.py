@@ -20,6 +20,8 @@ class Command(BaseCommand):
         self.stdout.write(f"available={status.get('available')}")
         self.stdout.write(f"language={status.get('language', '')}")
         self.stdout.write(f"ocr_version={status.get('ocr_version', '')}")
+        self.stdout.write(f"engine={status.get('engine', '')}")
+        self.stdout.write(f"version={status.get('version', '')}")
         self.stdout.write(f"message={status.get('message')}")
 
         path = Path(options['image_path'])

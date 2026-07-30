@@ -6,7 +6,7 @@ from .base import OCRBox, OCRDocument, OCRLine, OCRPage, OCRProvider, OCRWord
 
 
 class PaddleServiceProvider(OCRProvider):
-    name = 'paddle_service'
+    name = 'service'
 
     def get_service_url(self):
         return getattr(settings, 'OCR_SERVICE_URL', 'http://127.0.0.1:8010').rstrip('/')
@@ -16,29 +16,35 @@ class PaddleServiceProvider(OCRProvider):
 
     def status(self):
         try:
-            response = requests.get(f'{self.get_service_url()}/status', timeout=5)
+            response = requests.get(f'{self.get_service_url()}/health', timeout=5)
+            if response.status_code == 404:
+                response = requests.get(f'{self.get_service_url()}/status', timeout=5)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException:
             return {
                 'provider': self.name,
                 'available': False,
+                'engine': 'PaddleOCR',
                 'language': '',
                 'ocr_version': '',
-                'message': 'El lector de comprobantes no esta iniciado.',
+                'message': 'El lector de comprobantes esta apagado. Inicia OCR Service y volve a intentar.',
             }
         except ValueError:
             return {
                 'provider': self.name,
                 'available': False,
+                'engine': 'PaddleOCR',
                 'language': '',
                 'ocr_version': '',
                 'message': 'El lector de comprobantes devolvio una respuesta invalida.',
             }
 
         return {
-            'provider': data.get('provider', 'paddle'),
+            'provider': self.name,
             'available': bool(data.get('available')),
+            'engine': data.get('engine', 'PaddleOCR'),
+            'version': data.get('version', data.get('paddleocr_version', '')),
             'language': data.get('language', ''),
             'ocr_version': data.get('paddleocr_version', ''),
             'python_version': data.get('python_version', ''),

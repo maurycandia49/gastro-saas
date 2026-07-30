@@ -13,18 +13,21 @@ from fastapi.responses import JSONResponse
 
 
 BASE_DIR = Path(__file__).resolve().parent
-CACHE_DIR = BASE_DIR / ".cache"
-PADDLEX_CACHE_DIR = BASE_DIR / ".paddlex"
+CACHE_DIR = BASE_DIR / "runtime_cache"
+PADDLEX_CACHE_DIR = CACHE_DIR / "paddlex"
 
-os.environ.setdefault("HOME", str(BASE_DIR))
-os.environ.setdefault("USERPROFILE", str(BASE_DIR))
-os.environ.setdefault("PADDLE_HOME", str(CACHE_DIR / "paddle"))
-os.environ.setdefault("PADDLEX_HOME", str(PADDLEX_CACHE_DIR))
-os.environ.setdefault("PADDLEX_CACHE_DIR", str(PADDLEX_CACHE_DIR))
-os.environ.setdefault("PADDLE_PDX_CACHE_HOME", str(PADDLEX_CACHE_DIR))
-os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
-os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "0")
-os.environ.setdefault("MODELSCOPE_CACHE", str(BASE_DIR / ".modelscope"))
+# Paddle/PaddleX defaults may point to C:\Users\<user>\.cache on Windows.
+# In this project that path can be blocked by permissions or OneDrive policy, so
+# the OCR service owns its cache explicitly inside ocr_service/.
+os.environ["HOME"] = str(BASE_DIR)
+os.environ["USERPROFILE"] = str(BASE_DIR)
+os.environ["PADDLE_HOME"] = str(CACHE_DIR / "paddle")
+os.environ["PADDLEX_HOME"] = str(PADDLEX_CACHE_DIR)
+os.environ["PADDLEX_CACHE_DIR"] = str(PADDLEX_CACHE_DIR)
+os.environ["PADDLE_PDX_CACHE_HOME"] = str(PADDLEX_CACHE_DIR)
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+os.environ["PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT"] = "0"
+os.environ["MODELSCOPE_CACHE"] = str(CACHE_DIR / "modelscope")
 
 OCR_LANG = os.getenv("OCR_PADDLE_LANG", "es")
 _ENGINE = None
@@ -145,12 +148,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Pedilo OCR Service", version="1.0.0", lifespan=lifespan)
 
 
-@app.get("/status")
-def status():
+def health_payload():
     paddle_version, paddleocr_version = _versions()
     available = _ENGINE is not None and not _ENGINE_ERROR
     return {
         "provider": "paddle",
+        "status": "ok" if available else "error",
         "available": available,
         "engine": "PaddleOCR",
         "version": paddleocr_version,
@@ -161,6 +164,16 @@ def status():
         "engine_load_ms": _ENGINE_LOAD_MS,
         "message": "PaddleOCR listo." if available else (_ENGINE_ERROR or "PaddleOCR no esta iniciado."),
     }
+
+
+@app.get("/health")
+def health():
+    return health_payload()
+
+
+@app.get("/status")
+def status():
+    return health_payload()
 
 
 @app.post("/analyze")

@@ -15,7 +15,7 @@ _ENGINE_CACHE = {}
 
 
 class PaddleOCRProvider(OCRProvider):
-    name = 'paddle'
+    name = 'paddle_local'
 
     def _configure_cache(self):
         import os
@@ -97,18 +97,7 @@ class PaddleOCRProvider(OCRProvider):
             import paddle  # noqa: F401
             return True, 'PaddleOCR instalado. La primera lectura puede descargar modelos si no existen localmente.'
         except Exception as exc:
-            service = self._service_status()
-            if service.get('available'):
-                return True, 'PaddleOCR disponible via OCR Service.'
-            return False, f'PaddleOCR no esta disponible localmente ({exc}) y el OCR Service no esta disponible: {service.get("message", "")}'
-
-    def _service_status(self):
-        try:
-            from .paddle_service import PaddleServiceProvider
-
-            return PaddleServiceProvider().status()
-        except Exception as exc:
-            return {'provider': 'paddle', 'available': False, 'message': str(exc)}
+            return False, f'PaddleOCR local no esta disponible en el venv de Django: {exc}. Usa OCR_PROVIDER=service para procesar con OCR Service.'
 
     def status(self):
         available, message = self.is_available()
@@ -126,16 +115,15 @@ class PaddleOCRProvider(OCRProvider):
             paddle_version = getattr(paddle, '__version__', '')
         except Exception:
             pass
-        service = self._service_status() if not paddle_version else {}
         return {
             'provider': self.name,
             'available': available,
             'engine': 'PaddleOCR',
-            'version': paddleocr_version or service.get('paddleocr_version', '') or service.get('version', ''),
-            'language': self.get_language() or service.get('language', ''),
+            'version': paddleocr_version,
+            'language': self.get_language(),
             'ocr_version': self.get_ocr_version() or '',
-            'paddle_version': paddle_version or service.get('paddle_version', ''),
-            'mode': 'local' if paddle_version else ('service' if service.get('available') else 'unavailable'),
+            'paddle_version': paddle_version,
+            'mode': 'local' if paddle_version else 'unavailable',
             'message': message,
         }
 
@@ -189,22 +177,9 @@ class PaddleOCRProvider(OCRProvider):
         started_at = time.perf_counter()
         temp_path, image_format, width, height = prepare_image(image)
         try:
-            try:
-                engine = self._load_engine()
-                logger.info('PaddleOCR prediction started image_format=%s width=%s height=%s', image_format, width, height)
-                raw_result = engine.predict(temp_path)
-            except Exception:
-                from .paddle_service import PaddleServiceProvider
-
-                logger.info('Local PaddleOCR unavailable; delegating OCR_PROVIDER=paddle to OCR Service.')
-                try:
-                    image.seek(0)
-                except Exception:
-                    pass
-                document = PaddleServiceProvider().extract_document(image)
-                document.provider = self.name
-                document.metadata = {**(document.metadata or {}), 'mode': 'service'}
-                return document
+            engine = self._load_engine()
+            logger.info('PaddleOCR prediction started image_format=%s width=%s height=%s', image_format, width, height)
+            raw_result = engine.predict(temp_path)
         finally:
             cleanup_temp(temp_path)
         lines = []

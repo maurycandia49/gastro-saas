@@ -1,13 +1,19 @@
 from decimal import Decimal
 import json
+import logging
 
+from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 
 from inventory.models import Ingredient
 from negocios.models import Negocio
+from ocr.matcher import normalize_text
+from ocr.models import IngredientAlias
 from .models import Purchase, PurchaseItem, Supplier
 from .services import calculate_item_values, recalculate_purchase_totals
+
+logger = logging.getLogger(__name__)
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -76,13 +82,30 @@ class PurchaseSerializer(serializers.ModelSerializer):
         return value
 
     def to_internal_value(self, data):
-        mutable = data.copy()
+        mutable = {key: data.get(key) for key in data.keys()} if hasattr(data, 'getlist') else data.copy()
         items = mutable.get('items')
         if isinstance(items, str):
             try:
                 mutable['items'] = json.loads(items)
             except json.JSONDecodeError:
                 raise serializers.ValidationError({'items': 'Las lineas de compra no tienen un formato valido.'})
+        if isinstance(mutable.get('items'), list):
+            optional_decimal_fields = [
+                'quantity',
+                'unit_price',
+                'package_quantity',
+                'content_per_package',
+                'total_price',
+            ]
+            mutable['items'] = [
+                {
+                    key: value
+                    for key, value in item.items()
+                    if key not in optional_decimal_fields or value not in {'', None}
+                }
+                for item in mutable['items']
+                if isinstance(item, dict)
+            ]
         return super().to_internal_value(mutable)
 
     def validate(self, attrs):
@@ -106,6 +129,10 @@ class PurchaseSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
+        if settings.DEBUG:
+            logger.warning('PurchaseSerializer.create validated items_count=%s negocio=%s supplier=%s', len(items_data), getattr(validated_data.get('negocio'), 'id', None), getattr(validated_data.get('supplier'), 'id', None))
+        if not items_data:
+            raise serializers.ValidationError({'items': 'No se enviaron líneas de compra. Confirmá al menos una línea con insumo asociado antes de guardar.'})
         purchase = Purchase.objects.create(**validated_data)
         self._save_items(purchase, items_data)
         recalculate_purchase_totals(purchase)
@@ -118,6 +145,8 @@ class PurchaseSerializer(serializers.ModelSerializer):
             if protected.intersection(validated_data.keys()):
                 raise serializers.ValidationError('No se pueden editar datos criticos de una compra confirmada.')
         items_data = validated_data.pop('items', None)
+        if settings.DEBUG:
+            logger.warning('PurchaseSerializer.update validated items_count=%s purchase_id=%s', len(items_data) if items_data is not None else 'not_provided', instance.id)
         for key, value in validated_data.items():
             setattr(instance, key, value)
         instance.save()
@@ -155,3 +184,25 @@ class PurchaseSerializer(serializers.ModelSerializer):
             item.new_purchase_price = new_purchase_price
             item.unit_cost_in_stock_unit = new_purchase_price
             item.save()
+            self._learn_ocr_alias(purchase, item)
+
+    def _learn_ocr_alias(self, purchase, item):
+        detected_text = normalize_text(item.description_snapshot)
+        if not detected_text or detected_text == normalize_text(item.ingredient.name):
+            return
+        alias, created = IngredientAlias.objects.get_or_create(
+            ingredient=item.ingredient,
+            detected_text=detected_text[:255],
+            supplier=purchase.supplier,
+            defaults={
+                'package_type': item.package_type or '',
+                'content_per_package': item.content_per_package,
+                'content_unit': item.content_unit or '',
+            },
+        )
+        if not created:
+            alias.times_confirmed += 1
+            alias.package_type = item.package_type or alias.package_type
+            alias.content_per_package = item.content_per_package or alias.content_per_package
+            alias.content_unit = item.content_unit or alias.content_unit
+            alias.save(update_fields=['times_confirmed', 'package_type', 'content_per_package', 'content_unit', 'last_used_at'])

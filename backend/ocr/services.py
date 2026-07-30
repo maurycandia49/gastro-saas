@@ -39,7 +39,7 @@ class OCRInvalidImage(OCRError):
 
 class OCRServiceUnavailable(OCRError):
     def __init__(self):
-        super().__init__('OCR_SERVICE_UNAVAILABLE', 'El lector de comprobantes no esta iniciado.', 503)
+        super().__init__('OCR_SERVICE_UNAVAILABLE', 'El lector de comprobantes esta apagado. Inicia OCR Service y volve a intentar.', 503)
 
 
 class OCRServiceTimeout(OCRError):

@@ -16,6 +16,12 @@ class OCRServiceTests(unittest.TestCase):
         self.assertEqual(response.json()["provider"], "paddle")
         self.assertIn("python_version", response.json())
 
+    def test_health_reports_engine(self):
+        response = self.client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["engine"], "PaddleOCR")
+        self.assertIn("available", response.json())
+
     def test_invalid_image_returns_controlled_error(self):
         response = self.client.post(
             "/analyze",

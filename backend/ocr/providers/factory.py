@@ -30,22 +30,22 @@ class NoneProvider(OCRProvider):
 
 
 def get_provider_name():
-    return getattr(settings, 'OCR_PROVIDER', 'paddle_service') or 'none'
+    return getattr(settings, 'OCR_PROVIDER', 'service') or 'none'
 
 
 def get_provider(name=None):
     provider = name or get_provider_name()
     logger.info('OCR factory requested provider=%s service_url=%s', provider, getattr(settings, 'OCR_SERVICE_URL', ''))
-    if provider == 'paddle':
-        from .paddle import PaddleOCRProvider
-
-        logger.warning('OCR factory selected local PaddleOCRProvider inside Django process.')
-        return PaddleOCRProvider()
-    if provider == 'paddle_service':
+    if provider in {'service', 'paddle_service', 'paddle'}:
         from .paddle_service import PaddleServiceProvider
 
         logger.info('OCR factory selected %s.%s', PaddleServiceProvider.__module__, PaddleServiceProvider.__name__)
         return PaddleServiceProvider()
+    if provider == 'paddle_local':
+        from .paddle import PaddleOCRProvider
+
+        logger.warning('OCR factory selected local PaddleOCRProvider inside Django process.')
+        return PaddleOCRProvider()
     if provider == 'openai_vision':
         from .openai_vision import OpenAIVisionProvider
 

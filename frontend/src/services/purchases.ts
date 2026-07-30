@@ -88,6 +88,31 @@ export interface OCRDetectedItem {
   requires_review: boolean;
   needs_review?: boolean;
   validation_warnings?: string[];
+  presentation?: {
+    presentation_type: PurchaseItem['package_type'] | 'other';
+    package_quantity: string;
+    content_per_package: string;
+    content_unit: string;
+    original_content_unit?: string;
+    total_stock_quantity: string;
+    base_unit_cost: string;
+    source: string;
+    confidence: number;
+    needs_review: boolean;
+  };
+  presentation_type?: PurchaseItem['package_type'] | 'other';
+  package_quantity?: string;
+  content_per_package?: string;
+  content_unit?: string;
+  total_stock_quantity?: string;
+  base_unit_cost?: string;
+  presentation_source?: string;
+  presentation_confidence?: number;
+  confirmed?: boolean;
+  line_status?: 'pending' | 'confirmed' | 'ignored';
+  ocr_quantity?: string;
+  ocr_unit_price?: string;
+  ocr_subtotal?: string;
   quantity: string;
   unit: string;
   unit_price: string;
@@ -126,15 +151,35 @@ export interface OCRResult {
   };
 }
 
+export interface OCRStatus {
+  provider: string;
+  available: boolean;
+  engine?: string;
+  version?: string;
+  language?: string;
+  ocr_version?: string;
+  python_version?: string;
+  paddle_version?: string;
+  message: string;
+}
+
 function toFormData(payload: PurchasePayload) {
   const form = new FormData();
   Object.entries(payload).forEach(([key, value]) => {
     if (key === 'items' || key === 'document_image') return;
     if (value !== null && value !== undefined) form.append(key, String(value));
   });
-  form.append('items', JSON.stringify(payload.items));
+  const itemsJson = JSON.stringify(payload.items ?? []);
+  if (import.meta.env.DEV) console.log('[purchases service] FormData items:', itemsJson);
+  form.append('items', itemsJson);
   if (payload.document_image) form.append('document_image', payload.document_image);
   return form;
+}
+
+function logPurchaseRequest(operation: string, payload: PurchasePayload) {
+  if (!import.meta.env.DEV) return;
+  console.log(`[purchases service] ${operation} payload:`, payload);
+  console.log(`[purchases service] ${operation} items:`, payload.items);
 }
 
 export async function getPurchases(params?: Record<string, string | number | boolean | undefined>) {
@@ -148,11 +193,13 @@ export async function getPurchaseSummary(businessId: number) {
 }
 
 export async function createPurchase(payload: PurchasePayload) {
+  logPurchaseRequest('createPurchase', payload);
   const response = await api.post<Purchase>('/purchases/', toFormData(payload));
   return response.data;
 }
 
 export async function updatePurchase(id: number, payload: PurchasePayload) {
+  logPurchaseRequest('updatePurchase', payload);
   const response = await api.patch<Purchase>(`/purchases/${id}/`, toFormData(payload));
   return response.data;
 }
@@ -169,6 +216,11 @@ export async function cancelPurchase(id: number) {
 
 export async function deletePurchase(id: number) {
   await api.delete(`/purchases/${id}/`);
+}
+
+export async function getOCRStatus() {
+  const response = await api.get<OCRStatus>('/ocr/status/');
+  return response.data;
 }
 
 export async function scanPurchaseInvoice(businessId: number, image: File, rawText?: string) {

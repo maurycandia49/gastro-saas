@@ -1,0 +1,7 @@
+venv/
+runtime_cache/
+.cache/
+.paddlex/
+.modelscope/
+__pycache__/
+*.pyc

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+import json
 import logging
 import re
 import time
@@ -57,6 +58,43 @@ class SupplierViewSet(viewsets.ModelViewSet):
 class PurchaseViewSet(viewsets.ModelViewSet):
     serializer_class = PurchaseSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def _log_purchase_request(self, request, action_name):
+        if not settings.DEBUG:
+            return
+        data = request.data
+        items = data.get('items', [])
+        parsed_items_count = None
+        if isinstance(items, str):
+            try:
+                parsed_items = json.loads(items)
+                parsed_items_count = len(parsed_items) if hasattr(parsed_items, '__len__') else None
+            except json.JSONDecodeError:
+                parsed_items_count = 'invalid_json'
+        else:
+            parsed_items_count = len(items) if hasattr(items, '__len__') else 'unknown'
+        logger.warning(
+            'Purchase %s request received user_id=%s negocio=%s supplier=%s items_type=%s items_count=%s request_data=%s',
+            action_name,
+            request.user.id,
+            data.get('negocio'),
+            data.get('supplier'),
+            type(items).__name__,
+            parsed_items_count,
+            data,
+        )
+
+    def create(self, request, *args, **kwargs):
+        self._log_purchase_request(request, 'create')
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        self._log_purchase_request(request, 'update')
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        self._log_purchase_request(request, 'partial_update')
+        return super().partial_update(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = Purchase.objects.filter(negocio__user=self.request.user).select_related('supplier', 'confirmed_by').prefetch_related('items__ingredient')

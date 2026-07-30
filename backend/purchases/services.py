@@ -92,7 +92,7 @@ def confirm_purchase(purchase, user):
         raise serializers.ValidationError({'status': 'Solo se pueden confirmar compras en borrador.'})
     items = list(purchase.items.select_related('ingredient'))
     if not items:
-        raise serializers.ValidationError({'items': 'La compra debe tener al menos un insumo.'})
+        raise serializers.ValidationError({'items': 'La compra no tiene líneas guardadas. El frontend debe enviar al menos una línea confirmada con insumo asociado.'})
     Ingredient.objects.select_for_update().filter(id__in=[item.ingredient_id for item in items])
 
     impact = {'ingredients_updated': [], 'movements_created': 0, 'affected_products_count': 0, 'alerts_created': 0}

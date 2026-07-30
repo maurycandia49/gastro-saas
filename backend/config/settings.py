@@ -149,7 +149,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-OCR_PROVIDER = os.getenv('OCR_PROVIDER', 'paddle')
+OCR_PROVIDER = os.getenv('OCR_PROVIDER', 'service')
 OCR_SERVICE_URL = os.getenv('OCR_SERVICE_URL', 'http://127.0.0.1:8010')
 OCR_PADDLE_LANG = os.getenv('OCR_PADDLE_LANG', 'es')
 OCR_PADDLE_VERSION = os.getenv('OCR_PADDLE_VERSION', '')

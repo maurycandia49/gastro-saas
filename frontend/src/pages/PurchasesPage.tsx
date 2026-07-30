@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Eye, FileImage, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { CancelPurchaseDialog } from '../components/purchases/CancelPurchaseDialog';
@@ -13,12 +13,13 @@ import { DeactivateSupplierDialog } from '../components/suppliers/DeactivateSupp
 import { SupplierFormModal } from '../components/suppliers/SupplierFormModal';
 import { getApiErrorMessage } from '../services/apiErrors';
 import { getBusinesses, type Business } from '../services/business';
-import { getInventory, type Ingredient } from '../services/inventory';
-import { cancelPurchase, confirmPurchase, createPurchase, deletePurchase, getPurchaseSummary, getPurchases, scanPurchaseInvoice, updatePurchase, type OCRDetectedItem, type OCRResult, type Purchase, type PurchaseImpact, type PurchaseItem, type PurchasePayload, type PurchaseSummary } from '../services/purchases';
+import { createIngredient, getInventory, type Ingredient, type IngredientPayload, type IngredientUnit } from '../services/inventory';
+import { cancelPurchase, confirmPurchase, createPurchase, deletePurchase, getOCRStatus, getPurchaseSummary, getPurchases, scanPurchaseInvoice, updatePurchase, type OCRDetectedItem, type OCRResult, type OCRStatus, type Purchase, type PurchaseImpact, type PurchaseItem, type PurchasePayload, type PurchaseSummary } from '../services/purchases';
 import { createSupplier, deleteSupplier, getSuppliers, updateSupplier, type Supplier, type SupplierPayload } from '../services/suppliers';
 
 const emptyItem: PurchaseItem = { ingredient: 0, package_quantity: '1', package_type: 'bag', content_per_package: '', content_unit: 'kg', total_price: '', quantity: '', unit: 'kg', unit_price: '' };
 type OCRScanStage = 'idle' | 'image_selected' | 'uploading' | 'processing' | 'success' | 'error' | 'timeout';
+type OCRAvailability = 'unknown' | 'checking' | 'available' | 'offline';
 const PACKAGE_OPTIONS = [
   { value: 'bag', label: 'Bolsa' },
   { value: 'box', label: 'Caja' },
@@ -63,6 +64,27 @@ function getItemCalculation(item: PurchaseItem, ingredient?: Ingredient) {
   return { totalContent, stockContent, unitCost, contentUnit };
 }
 
+function normalizeIngredientName(value: string) {
+  const text = value.replace(/\s+x\s*\d+(?:[.,]\d+)?\s*(kg|g|l|ml|unidad|unidades)?/i, '').trim();
+  const lower = text.toLowerCase();
+  if (lower.includes('concepcion') && lower.includes('000')) return 'Harina Concepción 000';
+  if (lower.includes('harina')) return text;
+  return text || value;
+}
+
+function validatePurchaseItems(items: PurchaseItem[]) {
+  const errors: string[] = [];
+  items.forEach((item, index) => {
+    const line = item.description_snapshot || `Línea ${index + 1}`;
+    if (!item.ingredient) errors.push(`${line}: seleccioná un insumo.`);
+    if (Number(item.package_quantity || 0) <= 0) errors.push(`${line}: la cantidad de envases debe ser mayor que cero.`);
+    if (Number(item.content_per_package || 0) <= 0) errors.push(`${line}: el contenido por envase debe ser mayor que cero.`);
+    if (!item.content_unit) errors.push(`${line}: seleccioná la unidad del contenido.`);
+    if (Number(item.total_price || 0) <= 0) errors.push(`${line}: el precio total debe ser mayor que cero.`);
+  });
+  return errors;
+}
+
 export function PurchasesPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessId, setBusinessId] = useState<number | null>(null);
@@ -80,6 +102,8 @@ export function PurchasesPage() {
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
   const [invoicePreview, setInvoicePreview] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<'form' | Purchase | null>(null);
+  const [confirmPayload, setConfirmPayload] = useState<PurchasePayload | null>(null);
+  const confirmPayloadRef = useRef<PurchasePayload | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Purchase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Purchase | null>(null);
   const [deactivateSupplierTarget, setDeactivateSupplierTarget] = useState<Supplier | null>(null);
@@ -91,20 +115,147 @@ export function PurchasesPage() {
   const [ocrStage, setOcrStage] = useState<OCRScanStage>('idle');
   const [ocrMessage, setOcrMessage] = useState('');
   const [ocrError, setOcrError] = useState('');
+  const [ocrAvailability, setOcrAvailability] = useState<OCRAvailability>('unknown');
+  const [ocrStatus, setOcrStatus] = useState<OCRStatus | null>(null);
   const [ocrFile, setOcrFile] = useState<File | null>(null);
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState('');
   const [ignoredUnknownLines, setIgnoredUnknownLines] = useState<string[]>([]);
+  const [ocrRowErrors, setOcrRowErrors] = useState<Record<number, string>>({});
+  const [creatingIngredientForLine, setCreatingIngredientForLine] = useState<number | null>(null);
+  const [ingredientDraft, setIngredientDraft] = useState<IngredientPayload | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState<PurchasePayload>({ negocio: 0, supplier: null, document_type: 'invoice', document_number: '', purchase_date: today(), notes: '', taxes: '0.00', discounts: '0.00', items: [{ ...emptyItem }], document_image: null });
-  const validFormItems = form.items.filter((item) => item.ingredient && ((item.package_quantity && item.content_per_package && item.total_price) || (item.quantity && item.unit_price)));
-  const formSubtotal = calculateItemsTotal(validFormItems);
+  const normalizePurchaseLine = (line: OCRDetectedItem, index: number) => {
+    const formItem = form.items[index];
+    const description = line.detected_text || formItem?.description_snapshot || `Línea ${index + 1}`;
+    const ingredientId = Number(line.ingredient || formItem?.ingredient || 0);
+    const packageQuantity = Number(formItem?.package_quantity || line.package_quantity || line.presentation?.package_quantity || 0);
+    const contentPerPackage = Number(formItem?.content_per_package || line.content_per_package || line.presentation?.content_per_package || 0);
+    const contentUnit = formItem?.content_unit || line.content_unit || line.presentation?.content_unit || line.ingredient_unit || line.unit;
+    const totalPrice = Number(formItem?.total_price || line.subtotal || line.ocr_subtotal || 0);
+    const errors: string[] = [];
+    if (!formItem) errors.push(`${description}: no existe la línea en el formulario.`);
+    if (!line.confirmed && !ingredientId) errors.push(`${description}: confirmá esta línea antes de confirmar la compra.`);
+    if (!ingredientId) errors.push(`${description}: seleccioná un insumo asociado.`);
+    if (packageQuantity <= 0) errors.push(`${description}: la cantidad de envases debe ser mayor que cero.`);
+    if (contentPerPackage <= 0) errors.push(`${description}: el contenido por envase debe ser mayor que cero.`);
+    if (!contentUnit) errors.push(`${description}: seleccioná la unidad del contenido.`);
+    if (totalPrice <= 0) errors.push(`${description}: el precio total debe ser mayor que cero.`);
+    if (errors.length || !formItem) return { item: null, errors };
+    const ingredient = ingredients.find((row) => row.id === ingredientId);
+    const item: PurchaseItem = {
+      ...formItem,
+      ingredient: ingredientId,
+      ingredient_name: ingredient?.name ?? line.ingredient_name,
+      ingredient_unit: ingredient?.unit ?? line.ingredient_unit,
+      description_snapshot: formItem.description_snapshot || description,
+      package_quantity: String(packageQuantity),
+      package_type: (formItem.package_type || line.presentation_type || line.presentation?.presentation_type || 'other') as PurchaseItem['package_type'],
+      content_per_package: String(contentPerPackage),
+      content_unit: contentUnit,
+      total_price: String(totalPrice),
+      quantity: String(packageQuantity * contentPerPackage),
+      unit: contentUnit,
+      unit_price: totalPrice && packageQuantity * contentPerPackage ? String(totalPrice / (packageQuantity * contentPerPackage)) : formItem.unit_price,
+    };
+    return { item, errors };
+  };
+  const buildPurchaseItems = () => {
+    if (!ocrItems.length) {
+      const errors = validatePurchaseItems(form.items);
+      if (errors.length) {
+        return { items: [], errors, rowErrors: {} };
+      }
+      const items: PurchaseItem[] = [];
+      form.items.forEach((item, index) => {
+        const ingredientId = Number(item.ingredient || 0);
+        const packageQuantity = Number(item.package_quantity || 0);
+        const contentPerPackage = Number(item.content_per_package || 0);
+        const totalPrice = Number(item.total_price || 0);
+        const contentUnit = item.content_unit || item.unit;
+        const totalQuantity = packageQuantity > 0 && contentPerPackage > 0
+          ? packageQuantity * contentPerPackage
+          : Number(item.quantity || 0);
+        const unitPrice = totalPrice > 0 && totalQuantity > 0
+          ? totalPrice / totalQuantity
+          : Number(item.unit_price || 0);
+        if (ingredientId && totalQuantity > 0 && unitPrice > 0) {
+          const ingredient = ingredients.find((row) => row.id === ingredientId);
+          const normalizedItem: PurchaseItem = {
+            ...item,
+            ingredient: ingredientId,
+            ingredient_name: ingredient?.name ?? item.ingredient_name,
+            ingredient_unit: ingredient?.unit ?? item.ingredient_unit,
+            package_quantity: item.package_quantity || (item.quantity ? '1' : ''),
+            package_type: item.package_type || 'other',
+            content_per_package: item.content_per_package || item.quantity,
+            content_unit: contentUnit,
+            total_price: item.total_price || String(totalQuantity * unitPrice),
+            quantity: String(totalQuantity),
+            unit: contentUnit,
+            unit_price: String(unitPrice),
+          };
+          if (import.meta.env.DEV) console.log('LINEA MANUAL NORMALIZADA', {
+            index,
+            ingredientId: normalizedItem.ingredient,
+            packageQuantity: normalizedItem.package_quantity,
+            contentPerPackage: normalizedItem.content_per_package,
+            contentUnit: normalizedItem.content_unit,
+            quantity: normalizedItem.quantity,
+            unitPrice: normalizedItem.unit_price,
+            totalPrice: normalizedItem.total_price,
+          });
+          items.push(normalizedItem);
+        }
+      });
+      return { items, errors: [], rowErrors: {} };
+    }
+    const items: PurchaseItem[] = [];
+    const errors: string[] = [];
+    const rowErrors: Record<number, string> = {};
+    ocrItems.forEach((line, index) => {
+      const normalized = normalizePurchaseLine(line, index);
+      if (normalized.errors.length) {
+        if (import.meta.env.DEV) console.log('DESCARTADA LINEA OCR', {
+          index,
+          description: line.detected_text,
+          ingredientId: line.ingredient,
+          ingredientName: line.ingredient_name,
+          confirmed: line.confirmed,
+          quantity: line.package_quantity || line.quantity,
+          contentPerPackage: line.content_per_package,
+          unit: line.content_unit || line.unit,
+          total: line.subtotal,
+          errors: normalized.errors,
+        });
+        errors.push(...normalized.errors);
+        rowErrors[index] = normalized.errors[0];
+      } else if (normalized.item) {
+        if (import.meta.env.DEV) console.log('LINEA OCR NORMALIZADA', {
+          index,
+          description: normalized.item.description_snapshot,
+          ingredientId: normalized.item.ingredient,
+          ingredientName: normalized.item.ingredient_name,
+          confirmed: line.confirmed,
+          quantity: normalized.item.package_quantity,
+          contentPerPackage: normalized.item.content_per_package,
+          unit: normalized.item.content_unit,
+          total: normalized.item.total_price,
+        });
+        items.push(normalized.item);
+      }
+    });
+    return { items, errors, rowErrors };
+  };
+  const confirmedPurchaseItems = confirmPayload?.items ?? [];
+  const formSubtotal = calculateItemsTotal(confirmedPurchaseItems);
   const formTotal = formSubtotal + Number(form.taxes || 0) - Number(form.discounts || 0);
   const confirmationSummary = confirmTarget === 'form'
     ? {
       supplierName: suppliers.find((supplier) => supplier.id === form.supplier)?.name ?? 'Sin proveedor',
       date: form.purchase_date,
-      items: validFormItems.map((item) => ({ ...item, ingredient_name: ingredients.find((ingredient) => ingredient.id === Number(item.ingredient))?.name ?? item.ingredient_name })),
+      items: confirmedPurchaseItems.map((item) => ({ ...item, ingredient_name: ingredients.find((ingredient) => ingredient.id === Number(item.ingredient))?.name ?? item.ingredient_name })),
       subtotal: formSubtotal,
       taxes: form.taxes,
       discounts: form.discounts,
@@ -127,6 +278,38 @@ export function PurchasesPage() {
     if (search && !`${purchase.supplier_name ?? ''} ${purchase.document_number}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }), [purchases, search, statusFilter]);
+
+  const buildPurchasePayload = () => {
+    const { items: confirmedItems, errors, rowErrors } = buildPurchaseItems();
+    if (rowErrors) setOcrRowErrors(rowErrors);
+    const payload = { ...form, negocio: businessId ?? 0, items: confirmedItems };
+    if (import.meta.env.DEV) {
+      console.log('purchase lines', ocrItems.length ? ocrItems : form.items);
+      console.log('confirmed lines', confirmedItems);
+      console.log('valid lines', confirmedItems);
+      console.log('line errors', errors);
+      console.log('payload items', payload.items);
+      console.log('[PurchasesPage] payload final de compra', {
+      supplier: payload.supplier,
+      items: payload.items,
+      detectedItems: ocrItems.length,
+      confirmedItems: confirmedItems.length,
+      withIngredient: form.items.filter((item) => item.ingredient).length,
+      discardedItems: form.items.filter((item) => !payload.items.includes(item)),
+      rawFormItems: form.items,
+      ocrItems,
+      });
+    }
+    return { payload, errors };
+  };
+
+  const validatePurchasePayload = (payload: PurchasePayload, errors: string[]) => {
+    if (errors.length) return errors;
+    if (!payload.items.length) {
+      return ['La compra debe tener al menos un insumo confirmado. Revisá que cada línea tenga insumo, presentación, contenido y precio total.'];
+    }
+    return [];
+  };
 
   const load = async (selected?: number) => {
     try {
@@ -180,6 +363,30 @@ export function PurchasesPage() {
     setForm((current) => ({ ...current, items: current.items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }));
   };
 
+  const updateItemIngredient = (index: number, ingredientId: number) => {
+    const ingredient = ingredients.find((row) => row.id === ingredientId);
+    updateItem(index, {
+      ingredient: ingredientId,
+      ingredient_name: ingredient?.name,
+      ingredient_unit: ingredient?.unit,
+      content_unit: ingredient?.unit ?? form.items[index]?.content_unit,
+      unit: ingredient?.unit ?? form.items[index]?.unit,
+    });
+    setOcrItems((current) => {
+      if (!current.length || !current[index]) return current;
+      const next = current.map((line, lineIndex) => lineIndex === index ? {
+        ...line,
+        ingredient: ingredientId || null,
+        ingredient_name: ingredient?.name ?? '',
+        ingredient_unit: ingredient?.unit ?? line.ingredient_unit,
+        content_unit: ingredient?.unit ?? line.content_unit,
+        unit: ingredient?.unit ?? line.unit,
+      } : line);
+      if (ocrResult) applyOcrToDraft(ocrResult, next);
+      return next;
+    });
+  };
+
   const addItem = () => setForm((current) => ({ ...current, items: [...current.items, { ...emptyItem }] }));
   const removeItem = (index: number) => setForm((current) => ({ ...current, items: current.items.filter((_, itemIndex) => itemIndex !== index) }));
   const unresolvedOcrItems = ocrItems.filter((item) => !item.ingredient).length;
@@ -190,6 +397,7 @@ export function PurchasesPage() {
     setForm({ negocio: businessId, supplier: null, document_type: 'invoice', document_number: '', purchase_date: today(), notes: '', taxes: '0.00', discounts: '0.00', items: [{ ...emptyItem }], document_image: null });
     resetOcrScan();
     setShowForm(true);
+    void checkOcrStatus();
   };
 
   const openEditPurchase = (purchase: Purchase) => {
@@ -209,6 +417,26 @@ export function PurchasesPage() {
     });
     resetOcrScan();
     setShowForm(true);
+    void checkOcrStatus();
+  };
+
+  const checkOcrStatus = async () => {
+    try {
+      setOcrAvailability('checking');
+      const status = await getOCRStatus();
+      setOcrStatus(status);
+      setOcrAvailability(status.available ? 'available' : 'offline');
+      if (!status.available) {
+        setOcrError(status.message || 'El lector de comprobantes está apagado. Iniciá OCR Service y volvé a intentar.');
+      }
+      return status.available;
+    } catch (requestError) {
+      const message = getApiErrorMessage(requestError, 'No pudimos consultar el estado del OCR.');
+      setOcrStatus(null);
+      setOcrAvailability('offline');
+      setOcrError(message);
+      return false;
+    }
   };
 
   const applyOcrToDraft = (result: OCRResult, items: OCRDetectedItem[]) => {
@@ -218,17 +446,19 @@ export function PurchasesPage() {
       document_type: result.document_type,
       document_number: result.document_number || current.document_number,
       purchase_date: result.date ?? current.purchase_date,
+      discounts: result.document?.discount || current.discounts,
+      taxes: result.document?.taxes || current.taxes,
       items: items.map((item) => ({
         ingredient: item.ingredient ?? 0,
         description_snapshot: item.detected_text,
-        package_quantity: '1',
-        package_type: 'unit',
-        content_per_package: item.quantity,
-        content_unit: item.ingredient_unit || item.unit,
+        package_quantity: item.package_quantity || item.presentation?.package_quantity || item.quantity,
+        package_type: (item.presentation_type || item.presentation?.presentation_type || 'other') as PurchaseItem['package_type'],
+        content_per_package: item.content_per_package || item.presentation?.content_per_package || '',
+        content_unit: item.content_unit || item.presentation?.content_unit || item.ingredient_unit || item.unit,
         total_price: item.subtotal || String(Number(item.quantity || 0) * Number(item.unit_price || 0)),
-        quantity: item.quantity,
-        unit: item.ingredient_unit || item.unit,
-        unit_price: item.unit_price,
+        quantity: item.total_stock_quantity || item.presentation?.total_stock_quantity || item.quantity,
+        unit: item.content_unit || item.presentation?.content_unit || item.ingredient_unit || item.unit,
+        unit_price: item.base_unit_cost || item.presentation?.base_unit_cost || item.unit_price,
       })),
     }));
   };
@@ -237,6 +467,13 @@ export function PurchasesPage() {
     if (!businessId) {
       setOcrStage('error');
       setOcrError('Selecciona un negocio antes de escanear una factura.');
+      return;
+    }
+    const ready = await checkOcrStatus();
+    if (!ready) {
+      setOcrStage('error');
+      setOcrMessage(ocrStatus?.message || 'El lector de comprobantes está apagado. Iniciá OCR Service y volvé a intentar.');
+      setOcrError(ocrStatus?.message || 'El lector de comprobantes está apagado. Iniciá OCR Service y volvé a intentar.');
       return;
     }
     const previewUrl = URL.createObjectURL(file);
@@ -249,10 +486,11 @@ export function PurchasesPage() {
     setOcrResult(null);
     setOcrItems([]);
     setIgnoredUnknownLines([]);
+    setOcrRowErrors({});
     setOcrError('');
     setError('');
     setOcrStage('image_selected');
-    setOcrMessage('Imagen cargada. Preparando envio...');
+    setOcrMessage('Imagen cargada. Preparando envío...');
     const timers = [
       window.setTimeout(() => {
         setOcrStage('processing');
@@ -274,15 +512,22 @@ export function PurchasesPage() {
       setOcrStage('processing');
       setOcrMessage('Relacionando productos con tus insumos...');
       setOcrResult(result);
-      setOcrItems(result.items);
-      applyOcrToDraft(result, result.items);
+      const preparedItems = result.items.map((item) => ({
+        ...item,
+        confirmed: !item.requires_review && Boolean(item.ingredient),
+        line_status: !item.requires_review && item.ingredient ? 'confirmed' as const : 'pending' as const,
+      }));
+      if (import.meta.env.DEV) console.log('[PurchasesPage] líneas OCR detectadas', preparedItems);
+      setOcrItems(preparedItems);
+      setOcrRowErrors({});
+      applyOcrToDraft(result, preparedItems);
       setOcrStage('success');
       setOcrMessage(`Encontramos ${result.summary.items_found} productos. Solo necesitamos revisar ${result.summary.items_requiring_review}.`);
     } catch (requestError) {
       const isTimeout = typeof requestError === 'object' && requestError !== null && 'code' in requestError && (requestError as { code?: string }).code === 'ECONNABORTED';
       const message = isTimeout
-        ? 'El OCR sigue tardando demasiado. Proba nuevamente o completa la compra manualmente.'
-        : getApiErrorMessage(requestError, 'No pudimos leer esta factura. Podes completar la compra manualmente.');
+        ? 'El OCR sigue tardando demasiado. Probá nuevamente o completá la compra manualmente.'
+        : getApiErrorMessage(requestError, 'No pudimos leer esta factura. Podés completar la compra manualmente.');
       setOcrStage(isTimeout ? 'timeout' : 'error');
       setOcrMessage(message);
       setOcrError(message);
@@ -298,6 +543,7 @@ export function PurchasesPage() {
     setOcrResult(null);
     setOcrItems([]);
     setIgnoredUnknownLines([]);
+    setOcrRowErrors({});
     setOcrStage('idle');
     setOcrMessage('');
     setOcrError('');
@@ -307,6 +553,7 @@ export function PurchasesPage() {
     setOcrResult(null);
     setOcrItems([]);
     setIgnoredUnknownLines([]);
+    setOcrRowErrors({});
     setOcrStage('idle');
     setOcrMessage('');
     setOcrError('');
@@ -318,17 +565,41 @@ export function PurchasesPage() {
       if (ocrResult) applyOcrToDraft(ocrResult, next);
       return next;
     });
+    setOcrRowErrors((current) => {
+      const next = { ...current };
+      delete next[index];
+      return next;
+    });
   };
 
   const confirmOcrItem = (index: number) => {
     setOcrItems((current) => {
       const item = current[index];
+      if (import.meta.env.DEV) console.log('[PurchasesPage] confirmar línea OCR - antes', {
+        description: item?.detected_text,
+        selected_ingredient_id: item?.ingredient,
+        matched_ingredient_id: item?.match?.ingredient,
+        status: item?.line_status,
+        package_quantity: item?.package_quantity,
+        content_per_package: item?.content_per_package,
+        content_unit: item?.content_unit,
+        unit_price: item?.unit_price,
+        line_total: item?.subtotal,
+      });
       if (!item?.ingredient) {
-        setError('ElegÃ­ un insumo antes de confirmar esta lÃ­nea.');
+        const message = 'Seleccioná el insumo correspondiente antes de confirmar esta línea.';
+        setError(message);
+        setOcrRowErrors((currentErrors) => ({ ...currentErrors, [index]: message }));
         return current;
       }
       setError('');
-      const next = current.map((row, itemIndex) => itemIndex === index ? { ...row, requires_review: false, confidence: Math.max(row.confidence, 90) } : row);
+      setOcrRowErrors((currentErrors) => {
+        const nextErrors = { ...currentErrors };
+        delete nextErrors[index];
+        return nextErrors;
+      });
+      const next = current.map((row, itemIndex) => itemIndex === index ? { ...row, confirmed: true, line_status: 'confirmed' as const, requires_review: false, confidence: Math.max(row.confidence, 90) } : row);
+      if (import.meta.env.DEV) console.log('[PurchasesPage] confirmar línea OCR - después', next[index]);
       if (ocrResult) applyOcrToDraft(ocrResult, next);
       return next;
     });
@@ -340,6 +611,53 @@ export function PurchasesPage() {
       if (ocrResult) applyOcrToDraft(ocrResult, next.length ? next : []);
       return next;
     });
+  };
+
+  const openCreateIngredientFromOcr = (index: number) => {
+    const item = ocrItems[index];
+    if (!businessId || !item) return;
+    const unit = (item.content_unit || item.presentation?.content_unit || 'kg') as IngredientUnit;
+    setCreatingIngredientForLine(index);
+    setIngredientDraft({
+      negocio: businessId,
+      name: normalizeIngredientName(item.detected_text),
+      description: `Creado desde factura OCR: ${item.detected_text}`,
+      sku: item.code || '',
+      category: unit === 'kg' || unit === 'g' ? 'harinas' : 'otros',
+      unit,
+      current_stock: '0.000',
+      minimum_stock: '0.000',
+      purchase_price: item.base_unit_cost || item.presentation?.base_unit_cost || '0.00',
+      supplier: suppliers.find((supplier) => supplier.id === form.supplier)?.name ?? '',
+      barcode: '',
+      active: true,
+    });
+  };
+
+  const saveIngredientFromOcr = async () => {
+    if (creatingIngredientForLine === null || !ingredientDraft) return;
+    try {
+      setSaving(true);
+      const created = await createIngredient(ingredientDraft);
+      setIngredients((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      updateOcrItem(creatingIngredientForLine, {
+        ingredient: created.id,
+        ingredient_name: created.name,
+        ingredient_unit: created.unit,
+        content_unit: created.unit,
+        unit: created.unit,
+        requires_review: true,
+        confirmed: false,
+        line_status: 'pending',
+      });
+      setCreatingIngredientForLine(null);
+      setIngredientDraft(null);
+      setToast('Insumo creado y seleccionado en la línea.');
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'No pudimos crear el insumo.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const markUnknownAsProduct = (rawLine: string) => {
@@ -366,14 +684,15 @@ export function PurchasesPage() {
 
   const saveDraft = async () => {
     if (!businessId) return;
-    if (unresolvedOcrItems) {
-      setError('Revisa las lineas sin insumo antes de guardar el borrador.');
+    const { payload, errors } = buildPurchasePayload();
+    const validationErrors = validatePurchasePayload(payload, errors);
+    if (validationErrors.length) {
+      setError(validationErrors[0]);
       return;
     }
     try {
       setSaving(true);
       setError('');
-      const payload = { ...form, negocio: businessId, items: validFormItems };
       if (editingPurchase) await updatePurchase(editingPurchase.id, payload); else await createPurchase(payload);
       setShowForm(false);
       setEditingPurchase(null);
@@ -388,10 +707,14 @@ export function PurchasesPage() {
   };
 
   const confirmDraft = async () => {
-    if (unresolvedOcrItems) {
-      setError('No puedes confirmar mientras existan lineas escaneadas sin insumo resuelto.');
+    const { payload, errors } = buildPurchasePayload();
+    const validationErrors = validatePurchasePayload(payload, errors);
+    if (validationErrors.length) {
+      setError(validationErrors[0]);
       return;
     }
+    confirmPayloadRef.current = payload;
+    setConfirmPayload(payload);
     setDialogError('');
     setConfirmTarget('form');
   };
@@ -401,10 +724,45 @@ export function PurchasesPage() {
       setSaving(true);
       setDialogError('');
       const target = confirmTarget;
+      const payloadToSubmit = confirmPayloadRef.current ?? confirmPayload;
+      const built = target === 'form'
+        ? { payload: payloadToSubmit, errors: payloadToSubmit?.items.length ? [] : ['No se enviaron líneas de compra.'] }
+        : null;
+      const payload = built?.payload;
+      if (target === 'form' && payload && import.meta.env.DEV) {
+        console.log('LINEAS EN ESTADO:', ocrItems.length ? ocrItems.map((line, index) => ({
+          index,
+          description: line.detected_text,
+          ingredientId: line.ingredient,
+          ingredientName: line.ingredient_name,
+          confirmed: line.confirmed,
+          quantity: line.package_quantity || line.quantity,
+          contentPerPackage: line.content_per_package,
+          unit: line.content_unit || line.unit,
+          total: line.subtotal,
+        })) : form.items.map((item, index) => ({
+          index,
+          description: item.description_snapshot,
+          ingredientId: item.ingredient,
+          ingredientName: item.ingredient_name,
+          confirmed: true,
+          quantity: item.package_quantity || item.quantity,
+          contentPerPackage: item.content_per_package,
+          unit: item.content_unit || item.unit,
+          total: item.total_price || item.subtotal,
+        })));
+        console.log('PAYLOAD FINAL:', payload);
+        console.log('ITEMS FINALES:', payload.items);
+      }
+      const validationErrors = target === 'form' && payload ? validatePurchasePayload(payload, built.errors) : [];
+      if (validationErrors.length) {
+        setDialogError(validationErrors[0]);
+        return;
+      }
       const draft = target === 'form'
         ? editingPurchase
-          ? await updatePurchase(editingPurchase.id, { ...form, negocio: businessId ?? 0, items: validFormItems })
-          : await createPurchase({ ...form, negocio: businessId ?? 0, items: validFormItems })
+          ? await updatePurchase(editingPurchase.id, payload as PurchasePayload)
+          : await createPurchase(payload as PurchasePayload)
         : target;
       if (!draft) return;
       const response = await confirmPurchase(draft.id);
@@ -412,6 +770,8 @@ export function PurchasesPage() {
       setShowForm(false);
       setEditingPurchase(null);
       setConfirmTarget(null);
+      setConfirmPayload(null);
+      confirmPayloadRef.current = null;
       setToast('Compra confirmada.');
       await load(businessId ?? undefined);
     } catch (requestError) {
@@ -540,13 +900,30 @@ export function PurchasesPage() {
             <h2 className="text-2xl font-semibold">{editingPurchase ? 'Editar borrador' : 'Nueva compra'}</h2>
             <p className="mt-2 text-sm text-slate-500">La compra no afecta stock ni costos hasta confirmarla.</p>
             <div className="mt-5">
-              <InvoiceScanner disabled={saving || ocrStage === 'uploading' || ocrStage === 'processing'} onScan={(file) => void scanInvoice(file)} />
+              <div className={`mb-3 rounded-2xl border px-4 py-3 text-sm ${ocrAvailability === 'available' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ocrAvailability === 'offline' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="font-semibold">
+                    {ocrAvailability === 'checking'
+                      ? 'Revisando lector de comprobantes...'
+                      : ocrAvailability === 'available'
+                        ? `OCR listo${ocrStatus?.engine ? ` · ${ocrStatus.engine}` : ''}`
+                        : ocrAvailability === 'offline'
+                          ? 'OCR Service apagado'
+                          : 'OCR Service'}
+                  </p>
+                  <button type="button" onClick={() => void checkOcrStatus()} className="rounded-xl border border-current px-3 py-2 text-xs font-semibold">
+                    Reintentar estado
+                  </button>
+                </div>
+                <p className="mt-1 text-xs opacity-80">{ocrStatus?.message || 'Pedilo usa el OCR Service local para leer facturas sin instalar Paddle dentro de Django.'}</p>
+              </div>
+              <InvoiceScanner disabled={saving || ocrAvailability === 'checking' || ocrAvailability === 'offline' || ocrStage === 'uploading' || ocrStage === 'processing'} onScan={(file) => void scanInvoice(file)} />
               {ocrPreviewUrl || ocrStage !== 'idle' ? (
                 <div className={`mt-4 grid gap-4 rounded-2xl border p-4 text-sm md:grid-cols-[120px_1fr] ${ocrStage === 'error' || ocrStage === 'timeout' ? 'border-red-200 bg-red-50 text-red-800' : ocrStage === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
                   {ocrPreviewUrl ? <img src={ocrPreviewUrl} alt="Factura seleccionada" className="h-28 w-full rounded-xl object-cover md:w-28" /> : null}
                   <div>
                     <p className="font-semibold">{ocrMessage || 'Imagen cargada.'}</p>
-                    {ocrFile ? <p className="mt-1 text-xs opacity-80">{ocrFile.name} Â· {(ocrFile.size / 1024 / 1024).toFixed(2)} MB</p> : null}
+                    {ocrFile ? <p className="mt-1 text-xs opacity-80">{ocrFile.name} · {(ocrFile.size / 1024 / 1024).toFixed(2)} MB</p> : null}
                     {ocrError ? <p className="mt-2 text-sm">{ocrError}</p> : null}
                     {ocrResult ? <p className="mt-2">Encontramos {ocrResult.summary.items_found} productos. Solo necesitamos revisar {ocrResult.summary.items_requiring_review}. {ocrResult.processing_time_ms ? <span> Tiempo: {(ocrResult.processing_time_ms / 1000).toFixed(1)}s.</span> : null}</p> : null}
                     {ocrResult?.warnings.length ? <p className="mt-2 text-amber-700">{ocrResult.warnings.join(' ')}</p> : null}
@@ -566,7 +943,7 @@ export function PurchasesPage() {
                 <div><p className="text-xs font-semibold uppercase text-slate-400">Proveedor</p><p className="font-semibold text-slate-900">{ocrResult.supplier.name || 'Sin detectar'}</p><p className="text-slate-500">{ocrResult.supplier.tax_id || 'CUIT sin detectar'}</p></div>
                 <div><p className="text-xs font-semibold uppercase text-slate-400">Documento</p><p className="font-semibold text-slate-900">{ocrResult.document_number || 'Sin detectar'}</p><p className="text-slate-500">{ocrResult.date || 'Fecha sin detectar'}</p></div>
                 <div><p className="text-xs font-semibold uppercase text-slate-400">Tabla de productos</p><p className={ocrResult.table_detected ? 'font-semibold text-emerald-700' : 'font-semibold text-amber-700'}>{ocrResult.table_detected ? 'Detectada' : 'No detectada con seguridad'}</p><p className="text-slate-500">{ocrResult.buyer?.name ? `Comprador: ${ocrResult.buyer.name}` : 'Comprador sin detectar'}</p></div>
-                {ocrResult.supplier.address ? <div className="md:col-span-2"><p className="text-xs font-semibold uppercase text-slate-400">Direccion detectada</p><p className="text-slate-600">{ocrResult.supplier.address}</p></div> : null}
+                {ocrResult.supplier.address ? <div className="md:col-span-2"><p className="text-xs font-semibold uppercase text-slate-400">Dirección detectada</p><p className="text-slate-600">{ocrResult.supplier.address}</p></div> : null}
               </div>
             ) : null}
             <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -581,10 +958,10 @@ export function PurchasesPage() {
               {ocrItems.length ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4">
-                    <div><p className="font-semibold text-slate-900">Revision inteligente de factura</p><p className="text-sm text-slate-500">Confirma sugerencias o selecciona manualmente los insumos dudosos.</p></div>
+                    <div><p className="font-semibold text-slate-900">Revisión inteligente de factura</p><p className="text-sm text-slate-500">Confirmá sugerencias o seleccioná manualmente los insumos dudosos.</p></div>
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${unresolvedOcrItems ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{unresolvedOcrItems ? `${unresolvedOcrItems} por revisar` : 'Listo para guardar'}</span>
                   </div>
-                  <OCRReviewTable items={ocrItems} ingredients={ingredients} onChange={updateOcrItem} onConfirm={confirmOcrItem} onIgnore={ignoreOcrItem} />
+                  <OCRReviewTable items={ocrItems} ingredients={ingredients} onChange={updateOcrItem} onConfirm={confirmOcrItem} onIgnore={ignoreOcrItem} onCreateIngredient={openCreateIngredientFromOcr} rowErrors={ocrRowErrors} />
                   {ocrResult?.uncertain_lines?.filter((line) => !ignoredUnknownLines.includes(line.raw_line)).length ? (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                       <p className="font-semibold text-amber-900">Líneas para revisar</p>
@@ -611,7 +988,7 @@ export function PurchasesPage() {
                     <div className="grid gap-3 lg:grid-cols-[1.3fr_160px_150px_150px_150px_44px]">
                       <label className="text-sm font-medium text-slate-700">
                         Insumo
-                        <select value={item.ingredient} onChange={(e) => { const ingredient = ingredients.find((row) => row.id === Number(e.target.value)); updateItem(index, { ingredient: Number(e.target.value), content_unit: ingredient?.unit ?? item.content_unit, unit: ingredient?.unit ?? item.unit }); }} className="mt-1 w-full rounded-xl border px-3 py-2">
+                        <select value={item.ingredient} onChange={(e) => updateItemIngredient(index, Number(e.target.value))} className="mt-1 w-full rounded-xl border px-3 py-2">
                           <option value={0}>Elegí el insumo</option>
                           {ingredients.map((ingredient) => <option key={ingredient.id} value={ingredient.id}>{ingredient.name}</option>)}
                         </select>
@@ -659,13 +1036,43 @@ export function PurchasesPage() {
               <button onClick={addItem} className="rounded-2xl border px-4 py-2 text-sm font-semibold">Agregar linea</button>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-3"><label className="text-sm font-medium">Impuestos<input value={form.taxes} onChange={(e) => setForm({ ...form, taxes: e.target.value })} placeholder="Ej. 2100" className="mt-2 w-full rounded-2xl border px-4 py-3" /></label><label className="text-sm font-medium">Descuentos<input value={form.discounts} onChange={(e) => setForm({ ...form, discounts: e.target.value })} placeholder="Ej. 500" className="mt-2 w-full rounded-2xl border px-4 py-3" /></label><label className="text-sm font-medium">Notas<input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Ej. Entrega completa" className="mt-2 w-full rounded-2xl border px-4 py-3" /></label></div>
-            <div className="mt-6 rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">Revision: al confirmar ingresara stock, cambiara el costo actual por el ultimo costo comprado y recalculara recetas/margenes.</div>
+            <div className="mt-6 rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">Revisión: al confirmar ingresará stock, cambiará el costo actual por el último costo comprado y recalculará recetas/márgenes.</div>
             <div className="mt-6 flex justify-end gap-3"><button onClick={() => { setShowForm(false); setEditingPurchase(null); }} className="rounded-2xl border px-4 py-2">Cancelar</button><button disabled={saving} onClick={() => void saveDraft()} className="rounded-2xl border px-4 py-2 font-semibold">{saving ? 'Guardando...' : 'Guardar borrador'}</button><button disabled={saving} onClick={() => void confirmDraft()} className="rounded-2xl bg-slate-900 px-4 py-2 font-semibold text-white">Confirmar compra</button></div>
           </div>
         </div>
       ) : null}
+      {ingredientDraft ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl">
+            <h2 className="text-2xl font-semibold text-slate-900">Crear insumo</h2>
+            <p className="mt-2 text-sm text-slate-500">Pedilo lo va a seleccionar automáticamente en la línea OCR cuando lo guardes.</p>
+            <div className="mt-5 grid gap-4">
+              <label className="text-sm font-medium text-slate-700">Nombre
+                <input value={ingredientDraft.name} onChange={(event) => setIngredientDraft({ ...ingredientDraft, name: event.target.value })} className="mt-2 w-full rounded-2xl border px-4 py-3" />
+              </label>
+              <label className="text-sm font-medium text-slate-700">Unidad base
+                <select value={ingredientDraft.unit} onChange={(event) => setIngredientDraft({ ...ingredientDraft, unit: event.target.value as IngredientUnit })} className="mt-2 w-full rounded-2xl border px-4 py-3">
+                  {UNIT_OPTIONS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                </select>
+              </label>
+              <label className="text-sm font-medium text-slate-700">Categoría
+                <select value={ingredientDraft.category} onChange={(event) => setIngredientDraft({ ...ingredientDraft, category: event.target.value })} className="mt-2 w-full rounded-2xl border px-4 py-3">
+                  <option value="harinas">Harinas</option>
+                  <option value="lacteos">Lácteos</option>
+                  <option value="bebidas">Bebidas</option>
+                  <option value="otros">Otros</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" disabled={saving} onClick={() => { setIngredientDraft(null); setCreatingIngredientForLine(null); }} className="rounded-2xl border px-4 py-2">Cancelar</button>
+              <button type="button" disabled={saving || !ingredientDraft.name.trim()} onClick={() => void saveIngredientFromOcr()} className="rounded-2xl bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-50">{saving ? 'Guardando...' : 'Crear y seleccionar'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <SupplierFormModal open={showSupplier} supplier={editingSupplier} businessId={businessId} saving={saving} onClose={() => { setShowSupplier(false); setEditingSupplier(null); }} onSubmit={(payload) => void saveSupplier(payload)} />
-      <ConfirmPurchaseDialog open={Boolean(confirmTarget)} summary={confirmationSummary} loading={saving} error={dialogError} onClose={() => { if (!saving) setConfirmTarget(null); }} onConfirm={() => void executeConfirm()} />
+      <ConfirmPurchaseDialog open={Boolean(confirmTarget)} summary={confirmationSummary} loading={saving} error={dialogError} onClose={() => { if (!saving) { setConfirmTarget(null); setConfirmPayload(null); confirmPayloadRef.current = null; } }} onConfirm={() => void executeConfirm()} />
       <CancelPurchaseDialog purchase={cancelTarget} loading={saving} error={dialogError} onClose={() => { if (!saving) setCancelTarget(null); }} onConfirm={() => void executeCancel()} />
       <DeletePurchaseDialog purchase={deleteTarget} loading={saving} error={dialogError} onClose={() => { if (!saving) setDeleteTarget(null); }} onConfirm={() => void executeDelete()} />
       <DeactivateSupplierDialog supplier={deactivateSupplierTarget} loading={saving} error={dialogError} onClose={() => { if (!saving) setDeactivateSupplierTarget(null); }} onConfirm={() => void executeDeactivateSupplier()} />
